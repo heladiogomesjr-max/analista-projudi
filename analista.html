@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analista PROJUDI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;font-size:14px;min-height:100vh}
+
+/* ── HEADER ── */
+header{background:#1a1a18;color:#f5f4f0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.header-left{display:flex;align-items:center;gap:10px}
+.back{font-size:11px;color:#666;text-decoration:none;padding:4px 10px;border-radius:6px;border:1px solid #333;transition:all .15s}
+.back:hover{color:#ccc;border-color:#666}
+header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
+.header-right{display:flex;align-items:center;gap:10px}
+.usuario-badge{font-size:11px;color:#888;padding:4px 10px;border-radius:6px;background:#222;border:1px solid #333}
+#btn-logout{padding:5px 12px;border-radius:6px;border:1px solid #444;background:transparent;color:#aaa;font-size:11px;cursor:pointer;transition:all .15s}
+#btn-logout:hover{background:#333;color:#fff}
+
+/* ── LOGIN ── */
+#tela-login{position:fixed;inset:0;background:#f5f4f0;display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:#fff;border-radius:12px;border:1px solid #e8e7e3;padding:36px 32px;width:320px;display:flex;flex-direction:column;gap:16px}
+.login-box h2{font-size:16px;font-weight:700}
+.login-box p{font-size:12px;color:#999}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;font-weight:600;color:#555}
+.field input,.field select,.field textarea{padding:9px 12px;border-radius:7px;border:1.5px solid #e0dfd8;font-size:13px;font-family:inherit;background:#fafaf7;transition:border-color .15s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#1a7a55}
+.btn-primary{padding:10px;border-radius:7px;border:none;background:#1a1a18;color:#f5f4f0;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-primary:hover{background:#333}
+.btn-primary:disabled{opacity:.5;cursor:default}
+.err-msg{font-size:12px;color:#c0392b;background:#fdf0ee;padding:8px 12px;border-radius:6px;display:none}
+
+/* ── WRAP ── */
+.wrap{padding:16px 24px;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+
+/* ── FORM PANEL ── */
+.form-panel{background:#fff;border-radius:10px;border:1px solid #e8e7e3;padding:18px}
+.form-panel h2{font-size:11px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #f0efe9}
+.tabs{display:flex;gap:0;margin-bottom:16px;border-radius:7px;overflow:hidden;border:1.5px solid #e0dfd8}
+.tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;color:#888;cursor:pointer;background:#fafaf7;transition:all .15s}
+.tab.active{background:#1a1a18;color:#f5f4f0}
+.tab-content{display:none}
+.tab-content.active{display:flex;flex-direction:column;gap:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field textarea{min-height:90px;resize:vertical;font-family:monospace;font-size:12px}
+.btn-run{padding:11px;border-radius:7px;border:none;background:#1a7a55;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:4px}
+.btn-run:hover{background:#15603f}
+.btn-run:disabled{opacity:.5;cursor:default}
+.form-err{font-size:12px;color:#c0392b;background:#fdf0ee;padding:8px 12px;border-radius:6px;display:none;margin-top:4px}
+.orgao-chip{padding:3px 10px;border-radius:14px;border:1.5px solid #e0dfd8;background:#fff;cursor:pointer;font-size:11px;font-weight:500;color:#555;transition:all .15s;user-select:none}
+.orgao-chip.sel{background:#1a1a18;color:#f5f4f0;border-color:#1a1a18}
+
+/* ── JOBS PANEL ── */
+.jobs-panel{display:flex;flex-direction:column;gap:12px}
+.jobs-header{display:flex;align-items:center;justify-content:space-between}
+.jobs-header h2{font-size:11px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.07em}
+.jobs-header span{font-size:11px;color:#bbb}
+.job-card{background:#fff;border-radius:10px;border:1px solid #e8e7e3;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.job-card.running{border-left:3px solid #e6a817}
+.job-card.done{border-left:3px solid #1a7a55}
+.job-card.error,.job-card.cancelled{border-left:3px solid #c0392b}
+.job-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.job-id{font-family:monospace;font-size:11px;color:#bbb}
+.job-adv{font-size:11px;font-weight:600;color:#555;background:#f5f4f0;padding:2px 8px;border-radius:10px}
+.job-status-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.st-running{background:#fff8e0;color:#9a6c00}
+.st-done{background:#e8f7f0;color:#1a7a55}
+.st-error,.st-cancelled{background:#fdf0ee;color:#c0392b}
+.job-sub{font-size:12px;color:#666}
+.prog-track{height:6px;background:#f0efe9;border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:#1a7a55;border-radius:3px;transition:width .5s}
+.prog-fill.running{background:#e6a817}
+.prog-fill.error,.prog-fill.cancelled{background:#c0392b}
+.job-logs{background:#1a1a18;border-radius:6px;padding:8px 10px;max-height:100px;overflow-y:auto;font-family:monospace;font-size:11px;color:#aaa;line-height:1.5}
+.job-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn-sm{padding:5px 12px;border-radius:6px;border:1.5px solid;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-pause{border-color:#e6a817;color:#9a6c00;background:transparent}
+.btn-pause:hover{background:#e6a817;color:#fff}
+.btn-cancel{border-color:#f5c6bc;color:#c0392b;background:transparent}
+.btn-cancel:hover{background:#c0392b;color:#fff}
+.no-jobs{text-align:center;padding:32px;color:#bbb;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e8e7e3}
+
+@media(max-width:860px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="tela-login">
+  <div class="login-box">
+    <div>
+      <h2>Analista PROJUDI</h2>
+      <p style="margin-top:4px">Entre para iniciar análises</p>
+    </div>
+    <div class="field">
+      <label>Usuário</label>
+      <input type="text" id="login-usuario" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••" autocomplete="current-password">
+    </div>
+    <div class="err-msg" id="login-err"></div>
+    <button class="btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-left">
+    <a class="back" href="index.html">← Voltar</a>
+    <h1>Analista PROJUDI</h1>
+  </div>
+  <div class="header-right">
+    <span class="usuario-badge" id="usuario-badge" style="display:none"></span>
+    <button id="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</header>
+
+<div class="wrap" id="main-wrap" style="display:none">
+
+  <!-- FORMULÁRIO -->
+  <div class="form-panel">
+    <h2>Nova análise</h2>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('djen')">DJEN</div>
+      <div class="tab" onclick="switchTab('xlsx')">Processos</div>
+    </div>
+
+    <!-- TAB DJEN -->
+    <div class="tab-content active" id="tab-djen">
+      <div class="field">
+        <label>Usuário PROJUDI</label>
+        <select id="djen-usuario" onchange="preencherSenha('djen')"></select>
+      </div>
+      <div class="field">
+        <label>Nome do advogado (busca no DJEN)</label>
+        <input type="text" id="djen-nome" placeholder="Ex: LUIS ALBERT DOS SANTOS">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Data inicial</label>
+          <input type="date" id="djen-ini">
+        </div>
+        <div class="field">
+          <label>Data final</label>
+          <input type="date" id="djen-fim">
+        </div>
+      </div>
+      <div class="field">
+        <label>Órgãos julgadores (nenhum = todos)</label>
+        <div id="orgaos-list" style="display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#fafaf7;border-radius:7px;border:1.5px solid #e0dfd8"></div>
+      </div>
+      <div class="field">
+        <label>Filtro por palavra-chave (opcional)</label>
+        <input type="text" id="djen-filtro" placeholder="Ex: provido">
+      </div>
+      <div class="field">
+        <label>Limite de processos (0 = todos)</label>
+        <input type="number" id="djen-batch" value="0" min="0">
+      </div>
+      <div class="err-msg" id="djen-err"></div>
+      <button class="btn-run" onclick="iniciarDjen()">▶ Iniciar análise DJEN</button>
+    </div>
+
+    <!-- TAB XLSX / PROCESSOS -->
+    <div class="tab-content" id="tab-xlsx">
+      <div class="field">
+        <label>Usuário PROJUDI</label>
+        <select id="xlsx-usuario" onchange="preencherSenha('xlsx')"></select>
+      </div>
+      <div class="field">
+        <label>Números dos processos (um por linha)</label>
+        <textarea id="xlsx-numeros" placeholder="0000001-00.0000.0.00.0000&#10;0000002-00.0000.0.00.0000"></textarea>
+      </div>
+      <div class="field">
+        <label>Limite de processos (0 = todos)</label>
+        <input type="number" id="xlsx-batch" value="0" min="0">
+      </div>
+      <div class="err-msg" id="xlsx-err"></div>
+      <button class="btn-run" onclick="iniciarXlsx()">▶ Iniciar análise</button>
+    </div>
+  </div>
+
+  <!-- JOBS -->
+  <div class="jobs-panel">
+    <div class="jobs-header">
+      <h2>Execuções em andamento</h2>
+      <span id="jobs-info">Atualizando…</span>
+    </div>
+    <div id="jobs-lista"></div>
+  </div>
+
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════╗
+// ║  CONFIGURAÇÃO                                   ║
+// ╚══════════════════════════════════════════════════╝
+const SERVER = ''; // Vercel proxy — ver vercel.json rewrites
+// ════════════════════════════════════════════════════
+
+
+const ORGAOS_TJAM = [
+  { id: 69475, label: '1ª Turma Recursal' },
+  { id: 69559, label: '2ª Turma Recursal' },
+  { id: 69642, label: '3ª Turma Recursal' },
+  { id: 69560, label: '4ª Turma - Fazenda' },
+  { id: 69474, label: '1ª Câmara Cível' },
+  { id: 69470, label: '2ª Câmara Cível' },
+  { id: 69466, label: '3ª Câmara Cível' },
+  { id: 69476, label: 'Câmaras Reunidas' },
+];
+
+let TOKEN    = localStorage.getItem('analista_token') || '';
+let USUARIOS = [];
+let orgaosSelecionados = new Set();
+const ADV_LABELS = { luis_albert: 'LUIS ALBERT', nicolas_gomes: 'NICOLAS GOMES' };
+
+// ── AUTH ────────────────────────────────────────────
+async function fazerLogin() {
+  const usuario = document.getElementById('login-usuario').value.trim();
+  const senha   = document.getElementById('login-senha').value.trim();
+  const btn     = document.getElementById('btn-login');
+  const err     = document.getElementById('login-err');
+  if (!usuario || !senha) { mostrarErr(err, 'Preencha usuário e senha.'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando…'; err.style.display = 'none';
+  try {
+    const res  = await api('/api/login', 'POST', { usuario, senha }, false);
+    const json = await res.json();
+    if (json.ok) {
+      TOKEN = json.token;
+      localStorage.setItem('analista_token', TOKEN);
+      await carregarUsuarios();
+      mostrarApp(usuario);
+    } else {
+      mostrarErr(err, json.error || 'Erro ao autenticar.');
+    }
+  } catch(e) { mostrarErr(err, 'Servidor inacessível: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+}
+
+function logout() {
+  TOKEN = '';
+  localStorage.removeItem('analista_token');
+  location.reload();
+}
+
+function mostrarApp(usuario) {
+  document.getElementById('tela-login').style.display  = 'none';
+  document.getElementById('main-wrap').style.display   = 'grid';
+  document.getElementById('btn-logout').style.display  = '';
+  const badge = document.getElementById('usuario-badge');
+  badge.textContent = usuario;
+  badge.style.display = '';
+}
+
+// ── ÓRGÃOS ─────────────────────────────────────────
+function buildOrgaos() {
+  const el = document.getElementById('orgaos-list');
+  el.innerHTML = ORGAOS_TJAM.map(o =>
+    `<div class="orgao-chip" data-id="${o.id}" onclick="toggleOrgao(this,${o.id})">${o.label}</div>`
+  ).join('');
+}
+function toggleOrgao(el, id) {
+  if (orgaosSelecionados.has(id)) { orgaosSelecionados.delete(id); el.classList.remove('sel'); }
+  else { orgaosSelecionados.add(id); el.classList.add('sel'); }
+}
+
+// ── USUÁRIOS ────────────────────────────────────────
+async function carregarUsuarios() {
+  try {
+    const res  = await api('/api/usuarios');
+    const json = await res.json();
+    USUARIOS = json || [];
+    ['djen', 'xlsx'].forEach(t => {
+      const sel = document.getElementById(t + '-usuario');
+      sel.innerHTML = USUARIOS.map(u =>
+        `<option value="${u.cpf}" data-senha="${u.senha}">${u.label}</option>`
+      ).join('');
+    });
+  } catch(e) { console.warn('Usuários:', e); }
+}
+
+function preencherSenha(tab) { /* senhas ficam no servidor */ }
+
+// ── TABS ────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['djen','xlsx'][i] === tab));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── INICIAR ANÁLISES ────────────────────────────────
+async function iniciarDjen() {
+  const err    = document.getElementById('djen-err');
+  const sel    = document.getElementById('djen-usuario');
+  const cpf    = sel.value;
+  const senha  = sel.options[sel.selectedIndex]?.dataset?.senha || '';
+  const nome   = document.getElementById('djen-nome').value.trim();
+  const ini    = document.getElementById('djen-ini').value;
+  const fim    = document.getElementById('djen-fim').value;
+  const filtro = document.getElementById('djen-filtro').value.trim();
+  const batch  = parseInt(document.getElementById('djen-batch').value) || 0;
+  err.style.display = 'none';
+  if (!nome) { mostrarErr(err, 'Informe o nome do advogado.'); return; }
+  if (!ini || !fim) { mostrarErr(err, 'Informe as datas.'); return; }
+
+  const btn = document.querySelector('#tab-djen .btn-run');
+  btn.disabled = true; btn.textContent = '⏳ Iniciando…';
+  try {
+    const turmas = orgaosSelecionados.size > 0 ? [...orgaosSelecionados].join(',') : '0';
+    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, batch, turma: turmas });
+    const json = await res.json();
+    if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }, 2000); }
+    else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }
+  } catch(e) { mostrarErr(err, 'Erro: ' + e.message); btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }
+}
+
+async function iniciarXlsx() {
+  const err     = document.getElementById('xlsx-err');
+  const sel     = document.getElementById('xlsx-usuario');
+  const cpf     = sel.value;
+  const senha   = sel.options[sel.selectedIndex]?.dataset?.senha || '';
+  const numeros = document.getElementById('xlsx-numeros').value.trim();
+  const batch   = parseInt(document.getElementById('xlsx-batch').value) || 0;
+  err.style.display = 'none';
+  if (!numeros) { mostrarErr(err, 'Informe os números dos processos.'); return; }
+
+  const btn = document.querySelector('#tab-xlsx .btn-run');
+  btn.disabled = true; btn.textContent = '⏳ Iniciando…';
+  try {
+    const res  = await api('/api/iniciar_xlsx', 'POST', { cpf, senha, numeros_texto: numeros, batch });
+    const json = await res.json();
+    if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise'; }, 2000); }
+    else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise'; }
+  } catch(e) { mostrarErr(err, 'Erro: ' + e.message); btn.disabled=false; btn.textContent='▶ Iniciar análise'; }
+}
+
+// ── JOBS ────────────────────────────────────────────
+async function atualizarJobs() {
+  try {
+    const res  = await api('/api/jobs');
+    const json = await res.json();
+    if (!json.ok) return;
+    renderJobs(json.jobs || []);
+    const rodando = (json.jobs || []).filter(j => j.status === 'running').length;
+    document.getElementById('jobs-info').textContent =
+      rodando ? `${rodando} rodando · atualiza a cada 4s` : 'Nenhuma execução ativa';
+  } catch(e) { document.getElementById('jobs-info').textContent = 'Erro ao buscar jobs'; }
+}
+
+function renderJobs(lista) {
+  const el = document.getElementById('jobs-lista');
+  if (!lista.length) {
+    el.innerHTML = '<div class="no-jobs">Nenhuma execução registrada.<br><small>Inicie uma análise no formulário ao lado.</small></div>';
+    return;
+  }
+  el.innerHTML = lista.map(j => {
+    const cls   = j.status === 'running' ? 'running' : j.status === 'done' ? 'done' : j.status === 'cancelled' ? 'cancelled' : 'error';
+    const stLbl = { running:'Rodando', done:'Concluído', error:'Erro', cancelled:'Cancelado' }[j.status] || j.status;
+    const advLbl = ADV_LABELS[j.advogado_key] || j.advogado_key || '—';
+    const logs  = (j.logs_tail || []).map(l => `<div>${sanitize(l)}</div>`).join('');
+    const hora  = j.criado_em ? new Date(j.criado_em * 1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    const acoes = j.status === 'running' ? `
+      <button class="btn-sm btn-pause" onclick="pausar('${j.job_id}')">${j.pausado ? '▶ Retomar' : '⏸ Pausar'}</button>
+      <button class="btn-sm btn-cancel" onclick="cancelar('${j.job_id}')">✕ Cancelar</button>` : '';
+    return `<div class="job-card ${cls}">
+      <div class="job-top">
+        <span class="job-id">${j.job_id} · ${hora}</span>
+        <span class="job-adv">${advLbl}</span>
+        <span class="job-status-badge st-${cls}">${stLbl}</span>
+      </div>
+      <div class="job-sub">${sanitize(j.subtitulo || '')}</div>
+      <div class="prog-track"><div class="prog-fill ${cls}" style="width:${j.pct||0}%"></div></div>
+      ${logs ? `<div class="job-logs">${logs}</div>` : ''}
+      ${j.error ? `<div style="font-size:11px;color:#c0392b">${sanitize(j.error)}</div>` : ''}
+      ${acoes ? `<div class="job-actions">${acoes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function pausar(job_id) {
+  await api(`/api/pausar/${job_id}`, 'POST');
+  atualizarJobs();
+}
+
+async function cancelar(job_id) {
+  if (!confirm('Cancelar esta execução?')) return;
+  await api(`/api/cancelar/${job_id}`, 'POST');
+  atualizarJobs();
+}
+
+// ── UTILITÁRIOS ────────────────────────────────────
+function api(path, method='GET', body=null, withToken=true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (withToken && TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  return fetch(SERVER + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+function mostrarErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+function sanitize(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── INIT ────────────────────────────────────────────
+(async function init() {
+  // datas padrão: últimos 30 dias
+  const hoje = new Date(), ini = new Date(hoje);
+  ini.setDate(ini.getDate() - 30);
+  document.getElementById('djen-fim').value = hoje.toISOString().slice(0,10);
+  document.getElementById('djen-ini').value = ini.toISOString().slice(0,10);
+
+  buildOrgaos();
+  if (TOKEN) {
+    try {
+      const res = await api('/api/jobs');
+      if (res.ok) {
+        await carregarUsuarios();
+        mostrarApp(localStorage.getItem('analista_usuario') || 'admin');
+        atualizarJobs();
+        setInterval(atualizarJobs, 4000);
+        return;
+      }
+    } catch(e) {}
+    TOKEN = ''; localStorage.removeItem('analista_token');
+  }
+  // Tecla Enter no login
+  document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key==='Enter') fazerLogin(); });
+})();
+</script>
+</body>
+</html>
