@@ -38,6 +38,7 @@ const STATUS_FORMATO = {
   'DESFAVORÁVEL':           { bg: '#f4cccc', fg: '#990000' },
   'EXTINTO SEM MÉRITO':     { bg: '#c9daf8', fg: '#1155cc' },
   'SENTENÇA ANULADA':       { bg: '#fff2cc', fg: '#b45309' },
+  'ACORDO HOMOLOGADO':      { bg: '#d0e8f5', fg: '#1a5276' },
   'SEM PARECER CONCLUSIVO': { bg: '#efefef', fg: '#888888' },
 };
 
@@ -93,7 +94,7 @@ function doGet(e) {
         if (!r[iProc]) continue;
         rows.push({
           p:  String(r[iProc] || ''),
-          d:  String(r[iData] || ''),
+          d:  _formatData(r[iData]),
           r:  String(r[iRel]  || ''),
           s:  String(r[iStat] || ''),
           mt: String(r[iMat]  || ''),
@@ -213,6 +214,12 @@ function _escreverCabecalho(ws) {
 
 
 // ── UTILITÁRIOS ───────────────────────────────────────────────
+function _formatData(v) {
+  if (!v) return '';
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  return String(v);
+}
+
 function normalizar(adv) {
   return String(adv || 'LUIS_ALBERT').toUpperCase().replace(/ /g, '_');
 }

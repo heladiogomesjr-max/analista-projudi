@@ -156,13 +156,16 @@ Você analisa processos em que um advogado defende consumidores contra bancos/em
 
 ═══ REGRAS DE DECISÃO ═══
 Valores válidos para DECISAO:
-  • FAVORÁVEL | DESFAVORÁVEL | SENTENÇA ANULADA | EXTINTO SEM MÉRITO | SEM PARECER CONCLUSIVO
+  • FAVORÁVEL | DESFAVORÁVEL | SENTENÇA ANULADA | EXTINTO SEM MÉRITO | ACORDO HOMOLOGADO | SEM PARECER CONCLUSIVO
 
 PASSO 0 — Identifique o advogado do AUTOR (subscrição da petição ou cabeçalho do acórdão).
 PASSO 1 — Identifique o RECORRENTE. O consumidor pode ser RECORRENTE ou RECORRIDO — leia quem é quem.
 PASSO 2 — Resultado do julgamento:
   "DAR PROVIMENTO" → RECORRENTE ganhou | "NEGAR PROVIMENTO" → RECORRENTE perdeu
-  "ANULAR/CASSAR SENTENÇA" → SENTENÇA ANULADA | "EXTINTO" sem mérito → EXTINTO SEM MÉRITO
+  "ANULAR/CASSAR SENTENÇA" → SENTENÇA ANULADA
+  "EXTINTO" sem mérito (art. 485 CPC) → EXTINTO SEM MÉRITO — SOMENTE quando não há resolução de mérito: ilegitimidade, falta de interesse, coisa julgada, desistência, abandono.
+  "homologo o acordo" / "acordo homologado" / "transação homologada" / "partes celebraram acordo" → ACORDO HOMOLOGADO
+  ⚠️ ATENÇÃO CRÍTICA: mesmo que o texto use a palavra "extinto" ou "extinção", se houver homologação de acordo entre as partes, use SEMPRE ACORDO HOMOLOGADO. Homologação de acordo é extinção COM resolução do mérito (art. 487, III, b CPC) — não é EXTINTO SEM MÉRITO.
 PASSO 3 — Combine (DECISAO reflete SEMPRE a perspectiva do consumidor):
   consumidor é RECORRENTE + DAR PROVIMENTO    → FAVORÁVEL
   consumidor é RECORRENTE + NEGAR PROVIMENTO  → DESFAVORÁVEL
@@ -282,7 +285,8 @@ Use EXATAMENTE um dos códigos abaixo. Para cada um: leia o IDENTIFICAR e o NÃO
 Procure em: acórdão/embargos de mérito → sentença → petição inicial.
 Use o valor do acórdão se ele reformou a sentença.
 Preencha DANO_MATERIAL e DANO_MORAL separadamente. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00).
-Deixe ambos vazios se DESFAVORÁVEL, EXTINTO ou SEM PARECER CONCLUSIVO.
+Deixe ambos vazios se DESFAVORÁVEL, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO.
+Para ACORDO HOMOLOGADO: preencha os valores acordados se expressamente informados no documento.
 
 ⚠️ Se DECISAO = FAVORÁVEL mas não há condenação monetária:
   — Descreva a tutela obtida no RACIOCINIO (inexigibilidade, obrigação de fazer, suspensão de desconto etc.)
@@ -327,8 +331,8 @@ IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógi
   "RACIOCINIO": "3 frases obrigatórias: (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "MATERIA": "SIGLA_DA_MATERIA",
-  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER.",
-  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER."
+  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor material acordado se informado.",
+  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor moral acordado se informado."
 }}"""
 
 

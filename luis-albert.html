@@ -30,12 +30,12 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em;display:flex;align
 #err-banner button{padding:4px 12px;border-radius:6px;border:1px solid #e0b0aa;background:transparent;color:#9b2218;font-size:12px;cursor:pointer}
 #err-banner button:hover{background:#9b2218;color:#fff}
 .wrap{padding:16px 24px;max-width:1400px;margin:0 auto}
-.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+.cards{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:16px}
 .card{background:#fff;border-radius:10px;padding:13px 15px;border:1px solid #e8e7e3}
 .card .lbl{font-size:11px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 .card .val{font-size:22px;font-weight:700;line-height:1}
 .card .sub{font-size:11px;color:#bbb;margin-top:3px}
-.c-fav{color:#1a7a55}.c-des{color:#c0392b}.c-ext{color:#888}.c-val{color:#2563a0;font-size:17px!important}
+.c-fav{color:#1a7a55}.c-des{color:#c0392b}.c-ext{color:#888}.c-val{color:#2563a0;font-size:17px!important}.c-acrd{color:#0891b2}
 .filter-bar{background:#fff;border-radius:10px;border:1px solid #e8e7e3;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .filter-bar .lbl{font-size:12px;color:#bbb}
 #filter-info{font-size:13px;font-weight:600;color:#1a1a18}
@@ -68,7 +68,7 @@ td{padding:7px 10px;border-bottom:1px solid #f5f4f0;color:#333;vertical-align:mi
 tr:hover td{background:#fafaf7}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
 .b-fav{background:#e8f7f0;color:#1a7a55}.b-des{background:#fdf0ee;color:#c0392b}
-.b-ext{background:#f0efe9;color:#888}.b-anl{background:#fff8e0;color:#9a6c00}
+.b-ext{background:#f0efe9;color:#888}.b-anl{background:#fff8e0;color:#9a6c00}.b-acrd{background:#e0f2f7;color:#0891b2}
 .chart-box{background:#fff;border-radius:10px;border:1px solid #e8e7e3;padding:15px}
 .chart-box h2{font-size:11px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0efe9}
 .legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
@@ -141,6 +141,7 @@ tr:hover td{background:#fafaf7}
         <div class="leg"><div class="leg-sq" style="background:#c0392b"></div>Desfavorável</div>
         <div class="leg"><div class="leg-sq" style="background:#c0bfb8"></div>Extinto</div>
         <div class="leg"><div class="leg-sq" style="background:#e6a817"></div>Anulada</div>
+        <div class="leg"><div class="leg-sq" style="background:#0891b2"></div>Acordo</div>
       </div>
       <div style="position:relative;height:220px"><canvas id="ch-status"></canvas></div>
     </div>
@@ -169,11 +170,12 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const STATUS_COLORS = {
   'FAVORÁVEL':'#1a7a55','DESFAVORÁVEL':'#c0392b',
   'EXTINTO SEM MÉRITO':'#c0bfb8','SENTENÇA ANULADA':'#e6a817',
-  'SEM PARECER CONCLUSIVO':'#bbb',
+  'ACORDO HOMOLOGADO':'#0891b2','SEM PARECER CONCLUSIVO':'#bbb',
 };
 const BADGE = {
   'FAVORÁVEL':'b-fav','DESFAVORÁVEL':'b-des',
   'EXTINTO SEM MÉRITO':'b-ext','SENTENÇA ANULADA':'b-anl',
+  'ACORDO HOMOLOGADO':'b-acrd',
 };
 
 let DATA=[],activeTv=null,activeRel=null,activeMat=null,chStatus=null,chMonth=null;
@@ -225,13 +227,15 @@ function buildChips(){
 
 function esc(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 function shortN(r){return r.split(' ').slice(0,2).join(' ');}
-function monthKey(d){const p=d.split('/');return p.length===3?p[1]+'/'+p[2]:'';}
+function monthKey(d){const p=d.split('/');return p.length===3?p[2]+'/'+p[1]:'';}
+function monthLabel(k){const p=k.split('/');return p.length===2?p[1]+'/'+p[0]:k;}
 
 function refresh(){const d=getFiltered();renderCards(d);renderRelBars(d);renderTable(d);renderCharts(d);updateFilterUI();}
 
 function renderCards(d){
   const t=d.length,fav=d.filter(r=>r.s==='FAVORÁVEL').length,des=d.filter(r=>r.s==='DESFAVORÁVEL').length;
   const ext=d.filter(r=>r.s.includes('EXTINTO')).length,anl=d.filter(r=>r.s.includes('ANULADA')).length;
+  const acord=d.filter(r=>r.s==='ACORDO HOMOLOGADO').length;
   const val=d.reduce((a,r)=>a+(r.dm||0)+(r.mo||0),0);
   const pct=n=>t?Math.round(n/t*100):0;
   const fmt=v=>v>=1e6?'R$'+(v/1e6).toFixed(2)+'M':v>=1e3?'R$'+(v/1e3).toFixed(0)+'k':'R$'+Math.round(v);
@@ -241,6 +245,7 @@ function renderCards(d){
     <div class="card"><div class="lbl">Desfavoráveis</div><div class="val c-des">${des}</div><div class="sub">${pct(des)}%</div></div>
     <div class="card"><div class="lbl">Extintos</div><div class="val c-ext">${ext}</div><div class="sub">${pct(ext)}%</div></div>
     <div class="card"><div class="lbl">Anulados</div><div class="val c-ext">${anl}</div><div class="sub">${pct(anl)}%</div></div>
+    <div class="card"><div class="lbl">Acordos</div><div class="val c-acrd">${acord}</div><div class="sub">${pct(acord)}%</div></div>
     <div class="card"><div class="lbl">Valor total</div><div class="val c-val">${fmt(val)}</div><div class="sub">condenações</div></div>`;
 }
 
@@ -259,7 +264,7 @@ function renderTable(d){
   document.getElementById('tbl-meta').textContent=d.length>300?`(mostrando 300 de ${d.length})`:`(${d.length})`;
   document.getElementById('tbl-body').innerHTML=shown.map(r=>{
     const bc=BADGE[r.s]||'b-ext';
-    const sl={'FAVORÁVEL':'Favorável','DESFAVORÁVEL':'Desfav.','EXTINTO SEM MÉRITO':'Extinto','SENTENÇA ANULADA':'Anulada'}[r.s]||r.s;
+    const sl={'FAVORÁVEL':'Favorável','DESFAVORÁVEL':'Desfav.','EXTINTO SEM MÉRITO':'Extinto','SENTENÇA ANULADA':'Anulada','ACORDO HOMOLOGADO':'Acordo'}[r.s]||r.s;
     const mo=r.mo?'R$'+r.mo.toLocaleString('pt-BR',{maximumFractionDigits:0}):'—';
     return `<tr><td style="font-family:monospace;font-size:11px;color:#888">${r.p}</td><td>${r.d}</td><td style="font-size:11px;color:#777">${r.tv||'—'}</td><td>${shortN(r.r)}</td><td><span class="badge ${bc}">${sl}</span></td><td style="text-align:right">${mo}</td><td>${r.mt?r.mt.replace(/_/g,' '):'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px">Sem resultados</td></tr>';
@@ -272,7 +277,7 @@ function renderCharts(d){
   if(chStatus)chStatus.destroy();if(chMonth)chMonth.destroy();
   const sl=Object.keys(sc).filter(k=>sc[k]>0);
   chStatus=new Chart(document.getElementById('ch-status'),{type:'doughnut',data:{labels:sl,datasets:[{data:sl.map(s=>sc[s]),backgroundColor:sl.map(s=>STATUS_COLORS[s]||'#ccc'),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},padding:10,boxWidth:9,boxHeight:9}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/(d.length||1)*100)}%)`}}}}});
-  chMonth=new Chart(document.getElementById('ch-month'),{type:'bar',data:{labels:months,datasets:[{label:'Favorável',data:months.map(m=>md[m].fav),backgroundColor:'#1a7a55',stack:'s'},{label:'Desfavorável',data:months.map(m=>md[m].des),backgroundColor:'#c0392b',stack:'s'},{label:'Outros',data:months.map(m=>md[m].oth),backgroundColor:'#c0bfb8',stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0efe9'},ticks:{font:{size:11}}}}}});
+  chMonth=new Chart(document.getElementById('ch-month'),{type:'bar',data:{labels:months.map(monthLabel),datasets:[{label:'Favorável',data:months.map(m=>md[m].fav),backgroundColor:'#1a7a55',stack:'s'},{label:'Desfavorável',data:months.map(m=>md[m].des),backgroundColor:'#c0392b',stack:'s'},{label:'Outros',data:months.map(m=>md[m].oth),backgroundColor:'#c0bfb8',stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0efe9'},ticks:{font:{size:11}}}}}});
 }
 
 function updateFilterUI(){
