@@ -52,6 +52,22 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 .form-err{font-size:12px;color:#c0392b;background:#fdf0ee;padding:8px 12px;border-radius:6px;display:none;margin-top:4px}
 .orgao-chip{padding:3px 10px;border-radius:14px;border:1.5px solid #e0dfd8;background:#fff;cursor:pointer;font-size:11px;font-weight:500;color:#555;transition:all .15s;user-select:none}
 .orgao-chip.sel{background:#1a1a18;color:#f5f4f0;border-color:#1a1a18}
+.select-row{display:flex;gap:6px;align-items:center}
+.select-row select{flex:1}
+.btn-add{width:30px;height:30px;border-radius:7px;border:1.5px solid #e0dfd8;background:#fafaf7;color:#555;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.btn-add:hover{background:#1a1a18;color:#fff;border-color:#1a1a18}
+
+/* ── POPUP CADASTRO ── */
+.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}
+.popup-box{background:#fff;border-radius:12px;border:1px solid #e8e7e3;padding:28px 26px;width:360px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.popup-box h3{font-size:14px;font-weight:700;color:#1a1a18}
+.popup-box p{font-size:11px;color:#999;margin-top:-8px}
+.popup-btns{display:flex;gap:8px;margin-top:4px}
+.btn-cancel{flex:1;padding:9px;border-radius:7px;border:1.5px solid #e0dfd8;background:#fafaf7;color:#555;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{background:#eee}
+.btn-save{flex:2;padding:9px;border-radius:7px;border:none;background:#1a1a18;color:#f5f4f0;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-save:hover{background:#333}
+.btn-save:disabled{opacity:.5;cursor:default}
 
 /* ── JOBS PANEL ── */
 .jobs-panel{display:flex;flex-direction:column;gap:12px}
@@ -134,7 +150,10 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
     <div class="tab-content active" id="tab-djen">
       <div class="field">
         <label>Usuário PROJUDI</label>
-        <select id="djen-usuario" onchange="preencherSenha('djen')"></select>
+        <div class="select-row">
+          <select id="djen-usuario" onchange="preencherSenha('djen')"></select>
+          <button class="btn-add" onclick="abrirCadastro()" title="Cadastrar novo advogado">+</button>
+        </div>
       </div>
       <div class="field">
         <label>Nome do advogado (busca no DJEN)</label>
@@ -166,7 +185,10 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
     <div class="tab-content" id="tab-xlsx">
       <div class="field">
         <label>Usuário PROJUDI</label>
-        <select id="xlsx-usuario" onchange="preencherSenha('xlsx')"></select>
+        <div class="select-row">
+          <select id="xlsx-usuario" onchange="preencherSenha('xlsx')"></select>
+          <button class="btn-add" onclick="abrirCadastro()" title="Cadastrar novo advogado">+</button>
+        </div>
       </div>
       <div class="field">
         <label>Números dos processos (um por linha)</label>
@@ -440,6 +462,86 @@ function sanitize(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
   // Tecla Enter no login
   document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key==='Enter') fazerLogin(); });
 })();
+
+// ── CADASTRO DE ADVOGADO ─────────────────────────────
+function abrirCadastro() {
+  document.getElementById('popup-cadastro').style.display = 'flex';
+  document.getElementById('cad-cpf').focus();
+}
+function fecharCadastro() {
+  document.getElementById('popup-cadastro').style.display = 'none';
+  ['cad-cpf','cad-senha','cad-label','cad-nome','cad-sheet'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('cad-err').style.display = 'none';
+}
+async function salvarAdvogado() {
+  const cpf    = document.getElementById('cad-cpf').value.trim();
+  const senha  = document.getElementById('cad-senha').value.trim();
+  const label  = document.getElementById('cad-label').value.trim();
+  const nome   = document.getElementById('cad-nome').value.trim();
+  const sheet  = document.getElementById('cad-sheet').value.trim();
+  const err    = document.getElementById('cad-err');
+  const btn    = document.getElementById('cad-btn-salvar');
+
+  err.style.display = 'none';
+  if (!cpf)   { err.textContent = 'CPF / Login é obrigatório.';       err.style.display='block'; return; }
+  if (!senha) { err.textContent = 'Senha é obrigatória.';             err.style.display='block'; return; }
+  if (!label) { err.textContent = 'Nome curto é obrigatório.';        err.style.display='block'; return; }
+  if (!nome)  { err.textContent = 'Nome completo é obrigatório.';     err.style.display='block'; return; }
+
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    const res  = await api('/api/usuarios', 'POST', { cpf, senha, label, nome, sheet_id: sheet });
+    const json = await res.json();
+    if (json.ok) {
+      await carregarUsuarios();
+      fecharCadastro();
+    } else {
+      err.textContent = json.error || 'Erro ao salvar.';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = 'Erro de conexão.';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Salvar';
+  }
+}
 </script>
+
+<!-- POPUP CADASTRO ADVOGADO -->
+<div class="popup-overlay" id="popup-cadastro" style="display:none" onclick="if(event.target===this)fecharCadastro()">
+  <div class="popup-box">
+    <h3>Cadastrar Advogado</h3>
+    <p>Preencha os dados do advogado para liberar no sistema.</p>
+    <div class="field">
+      <label>CPF / Login PROJUDI</label>
+      <input type="text" id="cad-cpf" placeholder="00000000000" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Senha PROJUDI</label>
+      <input type="password" id="cad-senha" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>Nome curto (exibição)</label>
+      <input type="text" id="cad-label" placeholder="Ex: LUIS ALBERT">
+    </div>
+    <div class="field">
+      <label>Nome completo (busca no DJEN)</label>
+      <input type="text" id="cad-nome" placeholder="Ex: LUIS ALBERT DOS SANTOS OLIVEIRA">
+    </div>
+    <div class="field">
+      <label>Sheet ID Google Sheets <span style="font-weight:400;color:#aaa">(opcional)</span></label>
+      <input type="text" id="cad-sheet" placeholder="1-YfvO5o66Ox…">
+    </div>
+    <div class="err-msg" id="cad-err"></div>
+    <div class="popup-btns">
+      <button class="btn-cancel" onclick="fecharCadastro()">Cancelar</button>
+      <button class="btn-save" id="cad-btn-salvar" onclick="salvarAdvogado()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

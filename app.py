@@ -364,30 +364,51 @@ def _listar_usuarios():
     return usuarios
 
 
-def _salvar_usuario(cpf, senha, label=""):
-    """Salva ou atualiza um usuário na secção [usuarios] do config.ini."""
+def _salvar_usuario(cpf, senha, label="", nome="", sheet_id=""):
+    """Salva ou atualiza um usuário na secção [usuarios] do config.ini.
+    Também cria/atualiza a seção dedicada [adv_key] com nome e sheet_id."""
     caminho = os.path.join(PASTA, "config.ini")
     cfg = configparser.ConfigParser()
     cfg.read(caminho, encoding="utf-8")
     if not cfg.has_section("usuarios"):
         cfg.add_section("usuarios")
-    # Verifica se CPF já existe (atualiza senha/label)
+
+    adv_key = "_".join((label or cpf).strip().lower().split()[:2]) or "advogado"
+
+    # Verifica se CPF já existe (atualiza senha/label/nome)
     i = 0
     while cfg.has_option("usuarios", f"cpf_{i}"):
         if cfg.get("usuarios", f"cpf_{i}") == cpf:
             cfg.set("usuarios", f"senha_{i}", senha)
             if label:
                 cfg.set("usuarios", f"label_{i}", label)
+            if nome:
+                cfg.set("usuarios", f"nome_{i}", nome)
+            _salvar_secao_advogado(cfg, adv_key, nome or label, sheet_id)
             with open(caminho, "w", encoding="utf-8") as f:
                 cfg.write(f)
             return
         i += 1
+
     # Novo usuário
-    cfg.set("usuarios", f"cpf_{i}", cpf)
+    cfg.set("usuarios", f"cpf_{i}",   cpf)
     cfg.set("usuarios", f"senha_{i}", senha)
     cfg.set("usuarios", f"label_{i}", label or cpf)
+    if nome:
+        cfg.set("usuarios", f"nome_{i}", nome)
+    _salvar_secao_advogado(cfg, adv_key, nome or label, sheet_id)
     with open(caminho, "w", encoding="utf-8") as f:
         cfg.write(f)
+
+
+def _salvar_secao_advogado(cfg, adv_key, nome, sheet_id):
+    """Cria ou atualiza a seção [adv_key] com nome completo e sheet_id."""
+    if not cfg.has_section(adv_key):
+        cfg.add_section(adv_key)
+    if nome:
+        cfg.set(adv_key, "nome", nome)
+    if sheet_id:
+        cfg.set(adv_key, "sheet_id", sheet_id)
 
 
 def _get_senha_usuario(cpf):
@@ -1647,13 +1668,15 @@ def api_listar_usuarios():
 @app.route("/api/usuarios", methods=["POST"])
 def api_salvar_usuario():
     data = request.get_json(force=True, silent=True) or {}
-    cpf   = str(data.get("cpf",   "")).strip()
-    senha = str(data.get("senha", "")).strip()
-    label = str(data.get("label", "")).strip()
+    cpf      = str(data.get("cpf",      "")).strip()
+    senha    = str(data.get("senha",    "")).strip()
+    label    = str(data.get("label",    "")).strip()
+    nome     = str(data.get("nome",     "")).strip()
+    sheet_id = str(data.get("sheet_id", "")).strip()
     if not cpf or not senha:
         return jsonify({"ok": False, "error": "CPF e senha são obrigatórios."}), 400
     try:
-        _salvar_usuario(cpf, senha, label)
+        _salvar_usuario(cpf, senha, label, nome, sheet_id)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
