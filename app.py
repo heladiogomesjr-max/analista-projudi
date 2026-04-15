@@ -794,10 +794,6 @@ FORM_HTML = """<!DOCTYPE html>
           <label class="lbl">Palavra-chave na publicação DJEN <small style="font-weight:400;color:#9ca3af">(opcional)</small></label>
           <input type="text" name="filtro_texto" placeholder="Ex: indenização, provimento, improcedente…">
         </div>
-        <div class="fg">
-          <label class="lbl">🔢 Máximo de processos a analisar</label>
-          <input type="number" name="batch" value="500" min="1">
-        </div>
       </div>
 
       <button type="submit" class="btn-submit djen">▶ Buscar no DJEN e Analisar</button>
@@ -853,10 +849,6 @@ FORM_HTML = """<!DOCTYPE html>
           <div class="fg">
             <label class="lbl">Relator / Juiz</label>
             """ + _build_relator_select('relator_filtro') + """
-          </div>
-          <div class="fg">
-            <label class="lbl">🔢 Máximo de processos</label>
-            <input type="number" name="batch" value="500" min="1">
           </div>
         </div>
       </div>
@@ -1684,10 +1676,7 @@ def iniciar_djen():
     turma         = request.form.get("turma", "0").strip()
     relator       = request.form.get("relator_filtro", "").strip()
     filtro_texto  = request.form.get("filtro_texto", "").strip()
-    try:
-        batch = int(request.form.get("batch", "5"))
-    except ValueError:
-        batch = 5
+    batch = 0
 
     global _job_ativo
     job_id = uuid.uuid4().hex[:8]
@@ -1735,10 +1724,7 @@ def iniciar_xlsx():
     relator       = request.form.get("relator_filtro", "").strip()
     if usar_ia and not api_key:
         return "Chave API não configurada. Verifique o config.ini.", 400
-    try:
-        batch = int(request.form.get("batch", "5"))
-    except ValueError:
-        batch = 5
+    batch = 0
 
     global _job_ativo
     jobs[job_id] = {
@@ -2099,10 +2085,7 @@ def api_iniciar_djen():
     usar_ia       = bool(data.get('usar_ia',     True))
     modelo_ia     = str(data.get('modelo_ia',    ia_mod.MODELO_PADRAO)).strip() or ia_mod.MODELO_PADRAO
     nome_advogado = _carregar_config().get('nome_advogado', '')
-    try:
-        batch = int(data.get('batch', 0)) or 0
-    except (ValueError, TypeError):
-        batch = 0
+    batch = 0
 
     api_key = _get_api_key(ia_mod._detectar_provider(modelo_ia)) if usar_ia else ''
     if usar_ia and not api_key:
@@ -2144,10 +2127,7 @@ def api_iniciar_xlsx():
     usar_ia       = bool(data.get('usar_ia',      True))
     modelo_ia     = str(data.get('modelo_ia',     ia_mod.MODELO_PADRAO)).strip() or ia_mod.MODELO_PADRAO
     nome_advogado = _carregar_config().get('nome_advogado', '')
-    try:
-        batch = int(data.get('batch', 0)) or 0
-    except (ValueError, TypeError):
-        batch = 0
+    batch = 0
 
     if not numeros_texto:
         return jsonify({'ok': False, 'error': 'Informe os números dos processos'}), 400

@@ -158,10 +158,6 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
         <label>Filtro por palavra-chave (opcional)</label>
         <input type="text" id="djen-filtro" placeholder="Ex: provido">
       </div>
-      <div class="field">
-        <label>Limite de processos (0 = todos)</label>
-        <input type="number" id="djen-batch" value="0" min="0">
-      </div>
       <div class="err-msg" id="djen-err"></div>
       <button class="btn-run" onclick="iniciarDjen()">▶ Iniciar análise DJEN</button>
     </div>
@@ -175,10 +171,6 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
       <div class="field">
         <label>Números dos processos (um por linha)</label>
         <textarea id="xlsx-numeros" placeholder="0000001-00.0000.0.00.0000&#10;0000002-00.0000.0.00.0000"></textarea>
-      </div>
-      <div class="field">
-        <label>Limite de processos (0 = todos)</label>
-        <input type="number" id="xlsx-batch" value="0" min="0">
       </div>
       <div class="err-msg" id="xlsx-err"></div>
       <button class="btn-run" onclick="iniciarXlsx()">▶ Iniciar análise</button>
@@ -312,7 +304,7 @@ async function iniciarDjen() {
   const ini    = document.getElementById('djen-ini').value;
   const fim    = document.getElementById('djen-fim').value;
   const filtro = document.getElementById('djen-filtro').value.trim();
-  const batch  = parseInt(document.getElementById('djen-batch').value) || 0;
+  const batch  = 0;
   err.style.display = 'none';
   if (!nome) { mostrarErr(err, 'Informe o nome do advogado.'); return; }
   if (!ini || !fim) { mostrarErr(err, 'Informe as datas.'); return; }
@@ -334,7 +326,7 @@ async function iniciarXlsx() {
   const cpf     = sel.value;
   const senha   = sel.options[sel.selectedIndex]?.dataset?.senha || '';
   const numeros = document.getElementById('xlsx-numeros').value.trim();
-  const batch   = parseInt(document.getElementById('xlsx-batch').value) || 0;
+  const batch   = 0;
   err.style.display = 'none';
   if (!numeros) { mostrarErr(err, 'Informe os números dos processos.'); return; }
 
