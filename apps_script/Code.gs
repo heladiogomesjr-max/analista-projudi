@@ -227,6 +227,7 @@ function normalizar(adv) {
 
 function parseNumero(v) {
   if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;   // já é número — não mexe no ponto decimal
   var n = parseFloat(String(v).replace(/[R$\s.]/g, '').replace(',', '.'));
   return isNaN(n) ? 0 : n;
 }
