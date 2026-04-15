@@ -38,24 +38,35 @@ def novo_browser(pw):
 # ══════════════════════════════════════════════════════════════
 def login(page, cpf, senha, log):
     log("🔑 Fazendo login no PROJUDI...")
-    # Limpa cookies/sessão anterior para evitar redirecionamento pelo JSESSIONID expirado
-    try:
-        page.context.clear_cookies()
-    except Exception:
-        pass
-    page.goto(URL_LOGIN)
-    page.wait_for_load_state("domcontentloaded")
-    # Verifica se caiu na página pública (JSESSIONID residual redirecionou)
-    try:
-        page.wait_for_selector("#login", timeout=12000)
-    except Exception:
-        # Se não encontrou o formulário, tenta navegar novamente sem cookies
-        log("   ⚠️ Formulário de login não encontrado — tentando nova navegação...")
+
+    def _ir_para_login():
+        """
+        Garante chegada na URL de login SEM jsessionid nem _tj expirados.
+
+        Quando a sessão expira, o PROJUDI redireciona qualquer URL para
+        logon.do;jsessionid=EXPIRADO?_tj=TOKEN_ANTIGO — incluindo o _tj da
+        requisição original para "lembrar" o destino pós-login.
+        Navegar para about:blank primeiro elimina contexto/referrer do browser,
+        impede que o servidor associe a nova requisição ao token expirado.
+        """
+        try:
+            page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+        except Exception:
+            pass
         try:
             page.context.clear_cookies()
         except Exception:
             pass
-        page.goto(URL_LOGIN, wait_until="domcontentloaded")
+        page.goto(URL_LOGIN)
+        page.wait_for_load_state("domcontentloaded")
+
+    _ir_para_login()
+
+    try:
+        page.wait_for_selector("#login", timeout=12000)
+    except Exception:
+        log(f"   ⚠️ Formulário não encontrado (URL atual: {page.url[:100]}). Tentando novamente...")
+        _ir_para_login()
         page.wait_for_selector("#login", timeout=15000)
     # Formata CPF como XXX.XXX.XXX-XX (campo do PROJUDI tem máscara)
     cpf_digits = cpf.replace(".", "").replace("-", "").strip()
