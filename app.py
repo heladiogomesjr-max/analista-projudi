@@ -1946,7 +1946,7 @@ _CORS_ORIGINS = {
 }
 
 _tokens: dict = {}
-_TOKEN_TTL = 24 * 3600
+_TOKEN_TTL = 7 * 24 * 3600   # 7 dias — sobrevive reinicializações do servidor
 _TOKENS_FILE = os.path.join(PASTA, 'tokens.json')
 
 
@@ -1966,7 +1966,11 @@ def _tokens_carregar():
 def _tokens_salvar():
     try:
         import json as _json
-        open(_TOKENS_FILE, 'w').write(_json.dumps(_tokens))
+        # Escrita atômica: grava em .tmp e renomeia para evitar corrupção em crash
+        tmp = _TOKENS_FILE + '.tmp'
+        with open(tmp, 'w') as f:
+            f.write(_json.dumps(_tokens))
+        os.replace(tmp, _TOKENS_FILE)
     except Exception:
         pass
 

@@ -90,7 +90,17 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 .prog-fill{height:100%;background:#1a7a55;border-radius:3px;transition:width .5s}
 .prog-fill.running{background:#e6a817}
 .prog-fill.error,.prog-fill.cancelled{background:#c0392b}
-.job-logs{background:#1a1a18;border-radius:6px;padding:8px 10px;min-height:120px;max-height:420px;overflow-y:auto;font-family:monospace;font-size:11px;color:#aaa;line-height:1.5}
+.job-logs{background:#1a1a18;border-radius:6px;padding:8px 10px;min-height:120px;max-height:420px;overflow-y:auto;font-family:monospace;font-size:11px;color:#aaa;line-height:1.5;cursor:pointer;transition:box-shadow .15s}
+.job-logs:hover{box-shadow:0 0 0 1.5px #444}
+
+/* ── LOG POPUP ── */
+.log-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1500;display:flex;align-items:center;justify-content:center}
+.log-popup-box{background:#1a1a18;border-radius:10px;width:min(900px,94vw);max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.6);border:1px solid #333}
+.log-popup-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2a2a2a;flex-shrink:0}
+.log-popup-title{color:#ccc;font-size:12px;font-weight:600;font-family:monospace}
+.log-popup-close{background:none;border:1px solid #444;color:#888;font-size:12px;cursor:pointer;padding:3px 10px;border-radius:5px}
+.log-popup-close:hover{color:#fff;background:#333;border-color:#555}
+.log-popup-body{flex:1;overflow-y:auto;padding:12px 14px;font-family:monospace;font-size:12px;color:#aaa;line-height:1.6;min-height:0}
 .job-actions{display:flex;gap:6px;flex-wrap:wrap}
 .btn-sm{padding:5px 12px;border-radius:6px;border:1.5px solid;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-pause{border-color:#e6a817;color:#9a6c00;background:transparent}
@@ -271,6 +281,20 @@ function logout() {
   location.reload();
 }
 
+function _sessaoExpirada() {
+  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+  TOKEN = '';
+  localStorage.removeItem('analista_token');
+  document.getElementById('main-wrap').style.display  = 'none';
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('usuario-badge').style.display = 'none';
+  if (_logPopupJobId) fecharLogPopup();
+  const tela = document.getElementById('tela-login');
+  tela.style.display = 'flex';
+  const err = document.getElementById('login-err');
+  mostrarErr(err, '⚠️ Sessão expirada. Faça login novamente. O job em andamento continua no servidor.');
+}
+
 function mostrarApp(usuario) {
   document.getElementById('tela-login').style.display  = 'none';
   document.getElementById('main-wrap').style.display   = 'grid';
@@ -373,7 +397,8 @@ async function iniciarXlsx() {
 // ── JOBS ────────────────────────────────────────────
 async function atualizarJobs() {
   try {
-    const res  = await api('/api/jobs');
+    const res = await api('/api/jobs');
+    if (res.status === 401) { _sessaoExpirada(); return; }
     const json = await res.json();
     if (!json.ok) return;
     renderJobs(json.jobs || []);
@@ -383,8 +408,19 @@ async function atualizarJobs() {
   } catch(e) { document.getElementById('jobs-info').textContent = 'Erro ao buscar jobs'; }
 }
 
+let _lastJobs      = [];
+let _logPopupJobId = null;
+
 function renderJobs(lista) {
+  _lastJobs = lista;
   const el = document.getElementById('jobs-lista');
+
+  // Captura posição de scroll antes de reconstruir o DOM
+  const scrollAtBottom = {};
+  el.querySelectorAll('.job-logs[data-jid]').forEach(div => {
+    scrollAtBottom[div.dataset.jid] = div.scrollTop + div.clientHeight >= div.scrollHeight - 20;
+  });
+
   if (!lista.length) {
     el.innerHTML = '<div class="no-jobs">Nenhuma execução registrada.<br><small>Inicie uma análise no formulário ao lado.</small></div>';
     return;
@@ -406,11 +442,54 @@ function renderJobs(lista) {
       </div>
       <div class="job-sub">${sanitize(j.subtitulo || '')}</div>
       <div class="prog-track"><div class="prog-fill ${cls}" style="width:${j.pct||0}%"></div></div>
-      ${logs ? `<div class="job-logs">${logs}</div>` : ''}
+      ${logs ? `<div class="job-logs" data-jid="${j.job_id}" onclick="abrirLogPopup('${j.job_id}')" title="Clique para expandir">${logs}</div>` : ''}
       ${j.error ? `<div style="font-size:11px;color:#c0392b">${sanitize(j.error)}</div>` : ''}
       ${acoes ? `<div class="job-actions">${acoes}</div>` : ''}
     </div>`;
   }).join('');
+
+  // Restaura scroll: auto-scroll ao fim só se o usuário já estava no fim (ou primeira renderização)
+  el.querySelectorAll('.job-logs[data-jid]').forEach(div => {
+    const jid = div.dataset.jid;
+    if (!(jid in scrollAtBottom) || scrollAtBottom[jid]) {
+      div.scrollTop = div.scrollHeight;
+    }
+  });
+
+  // Atualiza popup se estiver aberto
+  if (_logPopupJobId) {
+    const job = lista.find(j => j.job_id === _logPopupJobId);
+    if (job) _atualizarPopupLogs(job);
+  }
+}
+
+function abrirLogPopup(job_id) {
+  _logPopupJobId = job_id;
+  document.getElementById('log-popup').style.display = 'flex';
+  const job = _lastJobs.find(j => j.job_id === job_id);
+  if (job) {
+    _atualizarPopupLogs(job);
+    // Na abertura, força scroll ao fim
+    const body = document.getElementById('log-popup-body');
+    body.scrollTop = body.scrollHeight;
+  }
+}
+
+function fecharLogPopup() {
+  _logPopupJobId = null;
+  document.getElementById('log-popup').style.display = 'none';
+}
+
+function _atualizarPopupLogs(job) {
+  const body  = document.getElementById('log-popup-body');
+  const title = document.getElementById('log-popup-title');
+  const stLbl = { running:'Rodando', done:'Concluído', error:'Erro', cancelled:'Cancelado' }[job.status] || job.status;
+  title.textContent = `${job.job_id} — ${stLbl}`;
+  const logs = (job.logs_tail || []).map(l => `<div>${sanitize(l)}</div>`).join('');
+  // Só rola ao fim se o usuário já estava no fim
+  const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+  body.innerHTML = logs;
+  if (atBottom) body.scrollTop = body.scrollHeight;
 }
 
 async function pausar(job_id) {
@@ -461,6 +540,7 @@ function sanitize(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
   }
   // Tecla Enter no login
   document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key==='Enter') fazerLogin(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && _logPopupJobId) fecharLogPopup(); });
 })();
 
 // ── CADASTRO DE ADVOGADO ─────────────────────────────
@@ -509,6 +589,17 @@ async function salvarAdvogado() {
   }
 }
 </script>
+
+<!-- POPUP LOGS -->
+<div class="log-popup-overlay" id="log-popup" style="display:none" onclick="if(event.target===this)fecharLogPopup()">
+  <div class="log-popup-box">
+    <div class="log-popup-hdr">
+      <span class="log-popup-title" id="log-popup-title">Logs</span>
+      <button class="log-popup-close" onclick="fecharLogPopup()">✕ Fechar</button>
+    </div>
+    <div class="log-popup-body" id="log-popup-body"></div>
+  </div>
+</div>
 
 <!-- POPUP CADASTRO ADVOGADO -->
 <div class="popup-overlay" id="popup-cadastro" style="display:none" onclick="if(event.target===this)fecharCadastro()">
