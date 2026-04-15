@@ -235,7 +235,18 @@ function normR(s){return (s||'').trim().replace(/\s+/g,' ');}
 function monthKey(d){const p=d.split('/');return p.length===3?p[2]+'/'+p[1]:'';}
 function monthLabel(k){const p=k.split('/');return p.length===2?p[1]+'/'+p[0]:k;}
 
-function refresh(){const d=getFiltered();renderCards(d);renderRelBars(d);renderTable(d);renderCharts(d);updateFilterUI();}
+function refresh(){const d=getFiltered();renderCards(d);renderRelBars(d);renderTable(d);renderCharts(d);updateFilterUI();syncBottomBoxHeights();}
+
+function syncBottomBoxHeights(){
+  const bottom=document.querySelector('.bottom');
+  const left=document.querySelector('.bottom>.box:first-child');
+  if(!bottom||!left)return;
+  bottom.style.gridTemplateRows='';
+  bottom.style.alignItems='start';
+  const h=left.offsetHeight;
+  bottom.style.alignItems='';
+  bottom.style.gridTemplateRows=h+'px';
+}
 
 function renderCards(d){
   const t=d.length,fav=d.filter(r=>r.s==='FAVORÁVEL').length,des=d.filter(r=>r.s==='DESFAVORÁVEL').length;
