@@ -36,8 +36,10 @@ _HEADERS = {
     "Connection": "keep-alive",
 }
 
-# Códigos HTTP que indicam bloqueio (vale tentar fallback)
-_CODIGOS_BLOQUEIO = {403, 429, 503, 502, 400}
+# Códigos HTTP que indicam bloqueio de IP/rate-limit (vale tentar fallback)
+# 400 NÃO entra aqui: é "bad request" (parâmetro inválido ou sem resultados),
+# não bloqueio — cair no fallback apenas desperdiça tempo e mascara o problema.
+_CODIGOS_BLOQUEIO = {403, 429, 503, 502}
 
 
 def limpar_html(texto):
@@ -228,7 +230,7 @@ def _normalizar_item(i):
 # PONTO DE ENTRADA PÚBLICO
 # ══════════════════════════════════════════════════════════════
 
-def buscar(nome_adv, data_ini, data_fim, opcao_turma):
+def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
     """
     Retorna lista de dicts com processos do DJEN.
 
@@ -240,21 +242,32 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma):
     Tenta primeiro via API REST com headers de navegador.
     Se bloqueado (IP de datacenter / cloud), usa Playwright como fallback.
     """
+    def _log(msg):
+        if log:
+            log(msg)
+
     orgao_ids = _resolver_orgaos(opcao_turma)
 
     # Sem filtro de órgão — busca única
     if not orgao_ids:
-        return _buscar_orgao(nome_adv, data_ini, data_fim, None)
+        resultado = _buscar_orgao(nome_adv, data_ini, data_fim, None)
+        _log(f"   📋 DJEN (todos os órgãos): {len(resultado)} publicação(ões)")
+        return resultado
 
     # Múltiplos órgãos — uma requisição por órgão, resultados mesclados
-    vistos   = set()
+    vistos    = set()
     resultado = []
     for oid in orgao_ids:
-        for item in _buscar_orgao(nome_adv, data_ini, data_fim, oid):
+        itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
+        novos = 0
+        for item in itens:
             proc = item.get('PROCESSO', '')
             if proc and proc not in vistos:
                 vistos.add(proc)
                 resultado.append(item)
+                novos += 1
+        _log(f"   📋 DJEN órgão {oid}: {len(itens)} publicação(ões), {novos} nova(s)")
+    _log(f"   📋 DJEN total: {len(resultado)} processo(s) únicos")
     return resultado
 
 

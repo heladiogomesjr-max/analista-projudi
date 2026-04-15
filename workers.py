@@ -596,7 +596,7 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         pct(5, "Buscando no DJEN...")
         filtro_rel = f" | Relator: {relator_filtro}" if relator_filtro else ""
         log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
-        processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0')
+        processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
         if not processos_djen:
             job['status'] = 'error'
             job['error']  = "Nenhum processo encontrado no DJEN com esses parâmetros."
