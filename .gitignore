@@ -1,2 +1,19 @@
-.vercel
-.env*.local
+# Credenciais e dados sensíveis
+config.ini
+tokens.json
+*.key
+*.pem
+
+# Saídas geradas
+output/
+__pycache__/
+*.pyc
+*.pyo
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Temporários
+*.tmp
+desktop.ini

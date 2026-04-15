@@ -1,0 +1,16 @@
+flask
+gunicorn
+pandas
+anthropic
+playwright
+requests
+beautifulsoup4
+pdfplumber
+xlsxwriter
+openpyxl
+python-docx
+# Provedores de IA adicionais
+openai
+google-generativeai
+groq
+mistralai

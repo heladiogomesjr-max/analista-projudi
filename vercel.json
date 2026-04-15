@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://129.146.135.39:5001/api/:path*"
+      "destination": "http://projus.duckdns.org:5001/api/:path*"
     }
   ]
 }
