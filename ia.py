@@ -327,9 +327,24 @@ IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógi
   "RACIOCINIO": "3 frases obrigatórias: (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "MATERIA": "SIGLA_DA_MATERIA",
-  "DANO_MATERIAL": "Valor do dano material / repetição de indébito / devolução condenada, somente se FAVORÁVEL. Formato obrigatório: R$ #.##0,00 (ex: R$ 1.500,00). Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER.",
-  "DANO_MORAL": "Valor do dano moral condenado, somente se FAVORÁVEL. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00). Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER."
+  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER.",
+  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER."
 }}"""
+
+
+# ══════════════════════════════════════════════════════════════
+# UTILITÁRIO — sanitização de valor monetário
+# ══════════════════════════════════════════════════════════════
+_RE_VALOR = re.compile(r'\d{1,3}(?:\.\d{3})*,\d{2}')
+
+def _sanitizar_valor(v):
+    """Extrai apenas o número no formato #.##0,00 de qualquer string retornada pela IA.
+    Remove R$, texto explicativo ou qualquer outro conteúdo extra.
+    Retorna string vazia se não encontrar um valor válido."""
+    if not v:
+        return ""
+    m = _RE_VALOR.search(str(v))
+    return m.group() if m else ""
 
 
 # ══════════════════════════════════════════════════════════════
@@ -581,12 +596,16 @@ def classificar(numero, tipo, turma_vara, relator_juiz,
             try:
                 texto_resp = _chamar_llm(PROMPT_SISTEMA, prompt_user, model, key, max_tokens=2000)
                 limpo = re.sub(r'^```(?:json)?\s*|\s*```\s*$', '', texto_resp).strip()
+                def _pos_processar(d):
+                    d["DANO_MATERIAL"] = _sanitizar_valor(d.get("DANO_MATERIAL", ""))
+                    d["DANO_MORAL"]    = _sanitizar_valor(d.get("DANO_MORAL", ""))
+                    return d
                 try:
-                    return json.loads(limpo)
+                    return _pos_processar(json.loads(limpo))
                 except json.JSONDecodeError:
                     m = re.search(r'\{[\s\S]*\}', limpo)
                     if m:
-                        return json.loads(m.group())
+                        return _pos_processar(json.loads(m.group()))
             except CreditoEsgotadoError:
                 raise
             except Exception as e:
