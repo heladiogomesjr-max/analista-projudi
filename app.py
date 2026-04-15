@@ -351,8 +351,15 @@ def _listar_usuarios():
         while cfg.has_option("usuarios", f"cpf_{i}"):
             cpf   = cfg.get("usuarios", f"cpf_{i}", fallback="")
             label = cfg.get("usuarios", f"label_{i}", fallback=cpf)
+            # Nome completo: tenta nome_i, depois seção do advogado, depois label
+            nome  = cfg.get("usuarios", f"nome_{i}", fallback="")
+            if not nome:
+                adv_key = "_".join(label.strip().lower().split()[:2])
+                nome = cfg.get(adv_key, "nome", fallback="") if cfg.has_section(adv_key) else ""
+            if not nome:
+                nome = label
             if cpf:
-                usuarios.append({"cpf": cpf, "label": label})
+                usuarios.append({"cpf": cpf, "label": label, "nome": nome})
             i += 1
     return usuarios
 

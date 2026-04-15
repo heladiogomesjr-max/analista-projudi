@@ -279,13 +279,21 @@ async function carregarUsuarios() {
     ['djen', 'xlsx'].forEach(t => {
       const sel = document.getElementById(t + '-usuario');
       sel.innerHTML = USUARIOS.map(u =>
-        `<option value="${u.cpf}" data-senha="${u.senha}">${u.label}</option>`
+        `<option value="${u.cpf}" data-senha="${u.senha}" data-nome="${u.nome || u.label}">${u.label}</option>`
       ).join('');
     });
+    // Preenche nome do advogado DJEN com o primeiro usuário da lista
+    preencherSenha('djen');
   } catch(e) { console.warn('Usuários:', e); }
 }
 
-function preencherSenha(tab) { /* senhas ficam no servidor */ }
+function preencherSenha(tab) {
+  if (tab === 'djen') {
+    const sel  = document.getElementById('djen-usuario');
+    const nome = sel.options[sel.selectedIndex]?.dataset?.nome || '';
+    if (nome) document.getElementById('djen-nome').value = nome;
+  }
+}
 
 // ── TABS ────────────────────────────────────────────
 function switchTab(tab) {
