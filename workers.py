@@ -26,6 +26,10 @@ _ERROS_SITE = ('timeout', 'navigation', 'net::', 'err_connection', 'err_name',
                'target closed', 'target page', 'browser has been closed',
                'page has been closed', 'connection refused', 'socket')
 
+# Erros que indicam que o browser Playwright foi destruído — não adianta aguardar e reconectar
+_ERROS_BROWSER_MORTO = ('target page', 'target closed', 'browser has been closed',
+                         'page has been closed', 'browser is closed')
+
 PASTA  = os.path.dirname(os.path.abspath(__file__))
 OUTPUT = os.path.join(PASTA, "output")
 os.makedirs(OUTPUT, exist_ok=True)
@@ -239,6 +243,13 @@ def _reconectar(page, cpf, senha, log, espera=60, max_tentativas=10, job=None):
         except _CanceladoError:
             raise
         except Exception as e_recon:
+            # Browser morto (OOM, kill externo) — não adianta aguardar e tentar de novo
+            msg = str(e_recon).lower()
+            if any(k in msg for k in _ERROS_BROWSER_MORTO):
+                raise RuntimeError(
+                    f"Browser Playwright encerrado inesperadamente (possível falta de memória). "
+                    f"Detalhe: {e_recon}"
+                )
             log(f"   ⚠️ Falha ao reconectar ({e_recon}). Tentando novamente...")
     raise RuntimeError(f"PROJUDI permanece indisponível após {max_tentativas} tentativas de reconexão.")
 

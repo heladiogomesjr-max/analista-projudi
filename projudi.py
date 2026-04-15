@@ -38,8 +38,25 @@ def novo_browser(pw):
 # ══════════════════════════════════════════════════════════════
 def login(page, cpf, senha, log):
     log("🔑 Fazendo login no PROJUDI...")
+    # Limpa cookies/sessão anterior para evitar redirecionamento pelo JSESSIONID expirado
+    try:
+        page.context.clear_cookies()
+    except Exception:
+        pass
     page.goto(URL_LOGIN)
-    page.wait_for_selector("#login", timeout=15000)
+    page.wait_for_load_state("domcontentloaded")
+    # Verifica se caiu na página pública (JSESSIONID residual redirecionou)
+    try:
+        page.wait_for_selector("#login", timeout=12000)
+    except Exception:
+        # Se não encontrou o formulário, tenta navegar novamente sem cookies
+        log("   ⚠️ Formulário de login não encontrado — tentando nova navegação...")
+        try:
+            page.context.clear_cookies()
+        except Exception:
+            pass
+        page.goto(URL_LOGIN, wait_until="domcontentloaded")
+        page.wait_for_selector("#login", timeout=15000)
     # Formata CPF como XXX.XXX.XXX-XX (campo do PROJUDI tem máscara)
     cpf_digits = cpf.replace(".", "").replace("-", "").strip()
     if len(cpf_digits) == 11:
