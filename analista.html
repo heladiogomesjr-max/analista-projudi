@@ -234,8 +234,11 @@ async function fazerLogin() {
     if (json.ok) {
       TOKEN = json.token;
       localStorage.setItem('analista_token', TOKEN);
+      localStorage.setItem('analista_usuario', usuario);
       await carregarUsuarios();
       mostrarApp(usuario);
+      atualizarJobs();
+      setInterval(atualizarJobs, 4000);
     } else {
       mostrarErr(err, json.error || 'Erro ao autenticar.');
     }
