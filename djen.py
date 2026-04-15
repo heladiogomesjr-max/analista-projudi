@@ -21,6 +21,61 @@ DJEN_PROXY_URL = "https://djen-proxy-201961766759.southamerica-east1.run.app/api
 # Mapa legado (mantido para compatibilidade)
 ORGAOS = {'1': 69475, '2': 69559, '3': 69642}
 
+# Lookup id → nome para exibição nos logs
+_NOMES_ORGAOS = {
+    # Turmas Recursais
+    69475: "1ª Turma Recursal",
+    69559: "2ª Turma Recursal",
+    69642: "3ª Turma Recursal",
+    69560: "4ª Turma Recursal - Fazenda",
+    # Câmaras / Tribunal
+    69474: "Primeira Câmara Cível",
+    69470: "Segunda Câmara Cível",
+    69466: "Terceira Câmara Cível",
+    69476: "Câmaras Reunidas",
+    69469: "Câmara Criminal",
+    69467: "Tribunal Pleno",
+    69484: "Secretaria Judiciária de Recursos",
+    # Juizados Especiais — Manaus
+    44842: "1º JE Cível Manaus",  46577: "2º JE Cível Manaus",
+    46658: "3º JE Cível Manaus",  44235: "4º JE Cível Manaus",
+    46551: "5º JE Cível Manaus",  51675: "6º JE Cível Manaus",
+    51775: "7º JE Cível Manaus",  42290: "8º JE Cível Manaus",
+    44233: "9º JE Cível Manaus",  44331: "10º JE Cível Manaus",
+    44272: "11º JE Cível Manaus", 44256: "12º JE Cível Manaus",
+    44349: "13º JE Cível Manaus", 44230: "14º JE Cível Manaus",
+    51133: "15º JE Cível Manaus", 44241: "16º JE Cível Manaus",
+    51209: "17º JE Cível Manaus", 42896: "18º JE Cível Manaus",
+    42871: "19º JE Cível Manaus", 42879: "20º JE Cível Manaus",
+    50064: "21º JE Cível Manaus", 51667: "22º JE Cível Manaus",
+    49348: "23º JE Cível Manaus",
+    51773: "1º JE Criminal Manaus", 52088: "2º JE Criminal Manaus",
+    51774: "1º JE Fazenda Manaus",  51782: "2º JE Fazenda Manaus",
+    51781: "3º JE Fazenda Manaus",  44546: "CEJUSC Cível Manaus",
+    # Varas Cíveis — Manaus
+    61706: "1ª Vara Cível Manaus",  61803: "2ª Vara Cível Manaus",
+    61700: "3ª Vara Cível Manaus",  61622: "4ª Vara Cível Manaus",
+    51210: "5ª Vara Cível Manaus",  51668: "6ª Vara Cível Manaus",
+    51670: "7ª Vara Cível Manaus",  61742: "8ª Vara Cível Manaus",
+    61663: "9ª Vara Cível Manaus",  61715: "10ª Vara Cível Manaus",
+    61716: "11ª Vara Cível Manaus", 61753: "12ª Vara Cível Manaus",
+    71138: "13ª Vara Cível Manaus", 61713: "14ª Vara Cível Manaus",
+    61702: "16ª Vara Cível Manaus", 51676: "17ª Vara Cível Manaus",
+    61704: "18ª Vara Cível Manaus", 52165: "19ª Vara Cível Manaus",
+    61662: "20ª Vara Cível Manaus", 61714: "21ª Vara Cível Manaus",
+    60939: "22ª Vara Cível Manaus", 61744: "23ª Vara Cível Manaus",
+    # Varas de Família — Manaus
+    61634: "1ª Vara Família Manaus", 64950: "2ª Vara Família Manaus",
+    73709: "3ª Vara Família Manaus", 63940: "4ª Vara Família Manaus",
+    61659: "5ª Vara Família Manaus", 61665: "6ª Vara Família Manaus",
+    61752: "7ª Vara Família Manaus", 61635: "8ª Vara Família Manaus",
+    61692: "9ª Vara Família Manaus",
+    # Varas da Fazenda — Manaus
+    69478: "1ª Vara Fazenda Manaus", 67395: "2ª Vara Fazenda Manaus",
+    65080: "3ª Vara Fazenda Manaus", 71078: "3ª Vara Fazenda/Saúde Manaus",
+    69564: "4ª Vara Fazenda Manaus",
+}
+
 # Headers que imitam um navegador — evitam bloqueio por User-Agent
 _HEADERS = {
     "User-Agent": (
@@ -259,6 +314,10 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
     resultado = []
     for oid in orgao_ids:
         itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
+        nome_orgao = (
+            itens[0].get('turma_djen') if itens
+            else _NOMES_ORGAOS.get(oid, str(oid))
+        )
         novos = 0
         for item in itens:
             proc = item.get('PROCESSO', '')
@@ -266,7 +325,7 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
                 vistos.add(proc)
                 resultado.append(item)
                 novos += 1
-        _log(f"   📋 DJEN órgão {oid}: {len(itens)} publicação(ões), {novos} nova(s)")
+        _log(f"   📋 DJEN {nome_orgao}: {len(itens)} publicação(ões), {novos} nova(s)")
     _log(f"   📋 DJEN total: {len(resultado)} processo(s) únicos")
     return resultado
 
