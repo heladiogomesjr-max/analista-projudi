@@ -320,14 +320,15 @@ ADVOGADO DO AUTOR: {nome_advogado_hint}
 ══ PETIÇÃO INICIAL (fonte para MATÉRIA e valores de repetição de indébito) ══
 {texto_peticao}
 
-Retorne SOMENTE este JSON (sem markdown):
+Retorne SOMENTE este JSON (sem markdown).
+IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógica do que você escreveu no RACIOCINIO.
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
-  "DECISAO": "FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
+  "RACIOCINIO": "3 frases obrigatórias: (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
+  "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "MATERIA": "SIGLA_DA_MATERIA",
   "DANO_MATERIAL": "Valor do dano material / repetição de indébito / devolução condenada, somente se FAVORÁVEL. Formato obrigatório: R$ #.##0,00 (ex: R$ 1.500,00). Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER.",
-  "DANO_MORAL": "Valor do dano moral condenado, somente se FAVORÁVEL. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00). Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER.",
-  "RACIOCINIO": "3 frases obrigatórias: (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor."
+  "DANO_MORAL": "Valor do dano moral condenado, somente se FAVORÁVEL. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00). Vazio se não houver ou se DESFAVORÁVEL/EXTINTO/SEM PARECER."
 }}"""
 
 
