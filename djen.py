@@ -91,10 +91,11 @@ _HEADERS = {
     "Connection": "keep-alive",
 }
 
-# Códigos HTTP que indicam bloqueio de IP/rate-limit (vale tentar fallback)
-# 400 NÃO entra aqui: é "bad request" (parâmetro inválido ou sem resultados),
-# não bloqueio — cair no fallback apenas desperdiça tempo e mascara o problema.
-_CODIGOS_BLOQUEIO = {403, 429, 503, 502}
+# Códigos HTTP que disparam o fallback proxy → Playwright.
+# 400 entra aqui porque a API do DJEN retorna 400 quando o IP de datacenter
+# não tem sessão de browser — o Playwright (fetch nativo do browser) consegue
+# contornar essa restrição e retorna os resultados corretamente.
+_CODIGOS_BLOQUEIO = {403, 429, 503, 502, 400}
 
 
 def limpar_html(texto):
