@@ -216,6 +216,12 @@ const ORGAOS_TJAM = [
 ];
 
 let TOKEN    = localStorage.getItem('analista_token') || '';
+let _pollInterval = null;
+function _iniciarPolling() {
+  if (_pollInterval) return;          // já está rodando
+  atualizarJobs();
+  _pollInterval = setInterval(atualizarJobs, 8000);
+}
 let USUARIOS = [];
 let orgaosSelecionados = new Set();
 const ADV_LABELS = { luis_albert: 'LUIS ALBERT', nicolas_gomes: 'NICOLAS GOMES' };
@@ -237,8 +243,7 @@ async function fazerLogin() {
       localStorage.setItem('analista_usuario', usuario);
       await carregarUsuarios();
       mostrarApp(usuario);
-      atualizarJobs();
-      setInterval(atualizarJobs, 4000);
+      _iniciarPolling();
     } else {
       mostrarErr(err, json.error || 'Erro ao autenticar.');
     }
@@ -426,8 +431,7 @@ function sanitize(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
       if (res.ok) {
         await carregarUsuarios();
         mostrarApp(localStorage.getItem('analista_usuario') || 'admin');
-        atualizarJobs();
-        setInterval(atualizarJobs, 4000);
+        _iniciarPolling();
         return;
       }
     } catch(e) {}
