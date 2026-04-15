@@ -310,14 +310,19 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         return resultado
 
     # Múltiplos órgãos — uma requisição por órgão, resultados mesclados
-    vistos    = set()
-    resultado = []
+    vistos      = set()
+    resultado   = []
+    # Nomes reais que a API retornou para cada órgão (aprendidos dos resultados)
+    nomes_reais = set()
+
     for oid in orgao_ids:
         itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
         nome_orgao = (
             itens[0].get('turma_djen') if itens
             else _NOMES_ORGAOS.get(oid, str(oid))
         )
+        if itens:
+            nomes_reais.add(itens[0].get('turma_djen', ''))
         novos = 0
         for item in itens:
             proc = item.get('PROCESSO', '')
@@ -326,6 +331,29 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
                 resultado.append(item)
                 novos += 1
         _log(f"   📋 DJEN {nome_orgao}: {len(itens)} publicação(ões), {novos} nova(s)")
+
+    # Busca global complementar: captura publicações indexadas sob órgão-pai
+    # que não aparecem nas buscas por orgaoId específico
+    nomes_alvo = {_NOMES_ORGAOS.get(oid, '').upper() for oid in orgao_ids}
+    nomes_alvo |= nomes_reais          # adiciona os nomes reais aprendidos da API
+    nomes_alvo.discard('')
+
+    if nomes_alvo:
+        _log(f"   🔍 DJEN buscando complemento global...")
+        todos = _buscar_orgao(nome_adv, data_ini, data_fim, None)
+        complementares = 0
+        for item in todos:
+            proc  = item.get('PROCESSO', '')
+            turma = item.get('turma_djen', '')
+            if proc and proc not in vistos and turma in nomes_alvo:
+                vistos.add(proc)
+                resultado.append(item)
+                complementares += 1
+        if complementares:
+            _log(f"   📋 DJEN complemento global: +{complementares} processo(s) adicional(is)")
+        else:
+            _log(f"   📋 DJEN complemento global: nenhum adicional encontrado")
+
     _log(f"   📋 DJEN total: {len(resultado)} processo(s) únicos")
     return resultado
 
