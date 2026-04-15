@@ -2108,7 +2108,7 @@ def api_iniciar_djen():
     data          = request.get_json(force=True, silent=True) or {}
     cpf           = str(data.get('cpf',         '')).strip()
     senha         = str(data.get('senha',        '')).strip()
-    if not senha:
+    if not senha or senha == 'undefined':
         senha = _get_senha_usuario(cpf)
     nome_adv      = str(data.get('nome_adv',     '')).strip()
     data_ini      = str(data.get('data_ini',     '')).strip()
@@ -2154,7 +2154,7 @@ def api_iniciar_xlsx():
     data          = request.get_json(force=True, silent=True) or {}
     cpf           = str(data.get('cpf',          '')).strip()
     senha         = str(data.get('senha',         '')).strip()
-    if not senha:
+    if not senha or senha == 'undefined':
         senha = _get_senha_usuario(cpf)
     numeros_texto = str(data.get('numeros_texto', '')).strip()
     relator       = str(data.get('relator',       '')).strip()
