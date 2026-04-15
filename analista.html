@@ -31,6 +31,9 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 .btn-primary{padding:10px;border-radius:7px;border:none;background:#1a1a18;color:#f5f4f0;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
 .btn-primary:hover{background:#333}
 .btn-primary:disabled{opacity:.5;cursor:default}
+@keyframes _spin{to{transform:rotate(360deg)}}
+.btn-primary.loading{cursor:wait;opacity:.9;background:#1a1a18}
+.btn-primary.loading::before{content:'';display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:_spin .6s linear infinite;margin-right:7px;vertical-align:middle}
 .err-msg{font-size:12px;color:#c0392b;background:#fdf0ee;padding:8px 12px;border-radius:6px;display:none}
 
 /* ── WRAP ── */
@@ -257,7 +260,7 @@ async function fazerLogin() {
   const btn     = document.getElementById('btn-login');
   const err     = document.getElementById('login-err');
   if (!usuario || !senha) { mostrarErr(err, 'Preencha usuário e senha.'); return; }
-  btn.disabled = true; btn.textContent = 'Entrando…'; err.style.display = 'none';
+  btn.disabled = true; btn.classList.add('loading'); btn.textContent = 'Verificando…'; err.style.display = 'none';
   try {
     const res  = await api('/api/login', 'POST', { usuario, senha }, false);
     const json = await res.json();
@@ -265,6 +268,7 @@ async function fazerLogin() {
       TOKEN = json.token;
       localStorage.setItem('analista_token', TOKEN);
       localStorage.setItem('analista_usuario', usuario);
+      btn.textContent = 'Carregando…';
       await carregarUsuarios();
       mostrarApp(usuario);
       _iniciarPolling();
@@ -272,7 +276,7 @@ async function fazerLogin() {
       mostrarErr(err, json.error || 'Erro ao autenticar.');
     }
   } catch(e) { mostrarErr(err, 'Servidor inacessível: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+  finally { btn.disabled = false; btn.classList.remove('loading'); btn.textContent = 'Entrar'; }
 }
 
 function logout() {
