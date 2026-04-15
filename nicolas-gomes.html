@@ -52,8 +52,8 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em;display:flex;align
 .chip.mat.active{background:#1a7a55;color:#fff;border-color:#1a7a55}
 .chip.tv.active{background:#7c3aed;color:#fff;border-color:#7c3aed}
 .chip sup{opacity:.45;font-size:.8em}
-.bottom{display:grid;grid-template-columns:360px 1fr;gap:14px;margin-bottom:14px}
-.bottom>.box{display:flex;flex-direction:column}
+.bottom{display:grid;grid-template-columns:280px 1fr;gap:14px;margin-bottom:14px}
+.bottom>.box{display:flex;flex-direction:column;max-height:500px;min-width:0}
 .bar-row{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
 .bar-lbl{font-size:12px;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-weight:500}
 .bar-lbl:hover{color:#2563a0;text-decoration:underline}
@@ -128,7 +128,7 @@ tr:hover td{background:#fafaf7}
         <table>
           <thead><tr>
             <th>Processo</th><th>Data</th><th>Órgão</th><th>Relator</th>
-            <th>Status</th><th>D. Moral</th><th>Matéria</th>
+            <th>Status</th><th>D. Material</th><th>D. Moral</th><th>Matéria</th>
           </tr></thead>
           <tbody id="tbl-body"></tbody>
         </table>
@@ -193,7 +193,7 @@ async function loadData() {
     if (!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error||'Resposta inválida');
-    DATA = json.data||[];
+    DATA = (json.data||[]).map(r=>({...r,r:normR(r.r)}));
     showLoading(false); hideError(); setDot('ok');
     const ts = new Date(json.updatedAt);
     document.getElementById('last-update').textContent =
@@ -231,6 +231,7 @@ function buildChips(){
 
 function esc(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 function shortN(r){return r.split(' ').slice(0,2).join(' ');}
+function normR(s){return (s||'').trim().replace(/\s+/g,' ');}
 function monthKey(d){const p=d.split('/');return p.length===3?p[2]+'/'+p[1]:'';}
 function monthLabel(k){const p=k.split('/');return p.length===2?p[1]+'/'+p[0]:k;}
 
@@ -269,9 +270,10 @@ function renderTable(d){
   document.getElementById('tbl-body').innerHTML=shown.map(r=>{
     const bc=BADGE[r.s]||'b-ext';
     const sl={'FAVORÁVEL':'Favorável','DESFAVORÁVEL':'Desfav.','EXTINTO SEM MÉRITO':'Extinto','SENTENÇA ANULADA':'Anulada','ACORDO HOMOLOGADO':'Acordo'}[r.s]||r.s;
+    const dm=r.dm?'R$'+r.dm.toLocaleString('pt-BR',{maximumFractionDigits:0}):'—';
     const mo=r.mo?'R$'+r.mo.toLocaleString('pt-BR',{maximumFractionDigits:0}):'—';
-    return `<tr><td style="font-family:monospace;font-size:11px;color:#888">${r.p}</td><td>${r.d}</td><td style="font-size:11px;color:#777">${r.tv||'—'}</td><td>${shortN(r.r)}</td><td><span class="badge ${bc}">${sl}</span></td><td style="text-align:right">${mo}</td><td>${r.mt?r.mt.replace(/_/g,' '):'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px">Sem resultados</td></tr>';
+    return `<tr><td style="font-family:monospace;font-size:11px;color:#888">${r.p}</td><td>${r.d}</td><td style="font-size:11px;color:#777">${r.tv||'—'}</td><td>${shortN(r.r)}</td><td><span class="badge ${bc}">${sl}</span></td><td style="text-align:right">${dm}</td><td style="text-align:right">${mo}</td><td>${r.mt?r.mt.replace(/_/g,' '):'—'}</td></tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:#bbb;padding:20px">Sem resultados</td></tr>';
 }
 
 function renderCharts(d){

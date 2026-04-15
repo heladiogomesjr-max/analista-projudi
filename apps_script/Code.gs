@@ -48,6 +48,7 @@ const ABAS_SISTEMA = ['_config', '_log', 'Config', 'Log'];
 
 // ── MIGRAÇÃO DE NOMES ─────────────────────────────────────────
 function _migrarNomesAbas(ss) {
+  if (!ss) return;
   ss.getSheets().forEach(function(ws) {
     var nome = ws.getName();
     if (RENOMEAR_ABAS[nome]) {
