@@ -22,7 +22,13 @@ COLUNAS_SHEETS = [
     'DANO MATERIAL',
     'DANO MORAL',
     'RESUMO DO PROCESSO',
+    'TRANSITADO EM JULGADO?',
 ]
+
+# Mapeamento de nome da coluna no Sheets → chave no dict do worker
+_ALIAS_COLUNAS = {
+    'TRANSITADO EM JULGADO?': 'TRANSITADO EM JULGADO? (SIM OU NÃO)',
+}
 
 
 def _cfg():
@@ -65,7 +71,10 @@ def inserir_na_planilha(linhas, turma_vara, advogado_key=None, log=None, modo='a
         proc = str(linha.get('NÚMERO DO PROCESSO') or '').strip()
         if not proc:
             continue
-        rows_clean.append({col: linha.get(col, '') for col in COLUNAS_SHEETS})
+        rows_clean.append({
+            col: linha.get(col) or linha.get(_ALIAS_COLUNAS.get(col, col), '')
+            for col in COLUNAS_SHEETS
+        })
 
     if not rows_clean:
         return True

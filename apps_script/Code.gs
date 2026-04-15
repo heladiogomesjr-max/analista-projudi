@@ -18,6 +18,7 @@ const COLUNAS = [
   'DANO MATERIAL',
   'DANO MORAL',
   'RESUMO DO PROCESSO',
+  'TRANSITADO EM JULGADO?',
 ];
 
 // Índice da coluna STATUS DA DECISÃO (base 0)
@@ -83,6 +84,7 @@ function doGet(e) {
       var iMat  = hdrs.indexOf('MATÉRIA');
       var iDm   = hdrs.indexOf('DANO MATERIAL');
       var iMo   = hdrs.indexOf('DANO MORAL');
+      var iTj   = hdrs.indexOf('TRANSITADO EM JULGADO?');
 
       if (iProc === -1) return;
 
@@ -98,6 +100,7 @@ function doGet(e) {
           dm: parseNumero(r[iDm]),
           mo: parseNumero(r[iMo]),
           tv: nome,
+          tj: iTj !== -1 ? String(r[iTj] || '') : '',
         });
       }
     });
