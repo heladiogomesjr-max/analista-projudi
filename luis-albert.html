@@ -245,7 +245,7 @@ function syncBottomBoxHeights(){
   bottom.style.alignItems='start';
   const h=left.offsetHeight;
   bottom.style.alignItems='';
-  bottom.style.gridTemplateRows=h+'px';
+  bottom.style.gridTemplateRows=Math.max(h,300)+'px';
 }
 
 function renderCards(d){
