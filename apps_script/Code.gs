@@ -45,6 +45,17 @@ const STATUS_FORMATO = {
 // Abas ignoradas na leitura do dashboard
 const ABAS_SISTEMA = ['_config', '_log', 'Config', 'Log'];
 
+// Retorna true se a aba é de Turma Recursal ou Câmara (2º grau)
+// Abas de Varas (1º grau) são excluídas automaticamente
+function _ehOrgao2g(nome) {
+  var n = nome.toUpperCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove acentos para comparar
+  return n.indexOf('TURMA')  !== -1
+      || n.indexOf('CAMARA') !== -1
+      || n.indexOf('CIVEL')  !== -1
+      || n.indexOf('CRIMINAL') !== -1;
+}
+
 
 // ── MIGRAÇÃO DE NOMES ─────────────────────────────────────────
 function _migrarNomesAbas(ss) {
@@ -74,6 +85,7 @@ function doGet(e) {
     ss.getSheets().forEach(function(ws) {
       var nome = ws.getName();
       if (ABAS_SISTEMA.indexOf(nome) !== -1) return;
+      if (!_ehOrgao2g(nome)) return; // ignora abas de Varas (1º grau)
 
       var data = ws.getDataRange().getValues();
       if (data.length < 2) return;
