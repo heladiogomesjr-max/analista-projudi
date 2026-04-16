@@ -634,6 +634,12 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
             'ACÓRDÃO', 'ACORDAO',
         }
+        # Log de diagnóstico: mostra distribuição real de tipo_doc
+        from collections import Counter as _Counter
+        dist_tipos = _Counter(p.get('tipo_doc', '(vazio)') for p in processos_djen)
+        for _t, _n in dist_tipos.most_common(10):
+            log(f"   📄 tipo_doc={_t!r}: {_n}x")
+
         if filtro_tipo_doc:
             antes = len(processos_djen)
             def _e_acordao(p):
