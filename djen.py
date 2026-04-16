@@ -228,7 +228,7 @@ def _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id):
                 f"&pagina={pagina}"
             )
             if orgao_id:
-                params_str += f"&orgaoId={orgao_id}"
+                params_str += f"&orgao={orgao_id}"
 
             url_fetch = f"{api_url}?{params_str}"
             try:
@@ -288,13 +288,18 @@ def _normalizar_item(i):
         i.get('texto', '') or i.get('conteudo', '') or
         i.get('textoPublicacao', '') or ''
     )
+    # A API retorna campos em camelCase e snake_case dependendo da versão/endpoint.
+    # Lemos ambos com fallback para garantir compatibilidade.
+    nome_orgao = i.get('nomeOrgao') or i.get('orgao') or ''
+    orgao_id   = i.get('idOrgao')   or i.get('orgao')          # pode ser int ou str
+    tipo_doc   = i.get('tipoDocumento') or i.get('tipo_documento') or ''
     return {
         'PROCESSO':   num_fmt,
-        'turma_djen': i.get('nomeOrgao', '').upper(),
-        'orgao_id':   i.get('idOrgao'),
+        'turma_djen': str(nome_orgao).upper(),
+        'orgao_id':   orgao_id,
         'data_pub':   data_fmt,
         'texto':      texto_pub,
-        'tipo_doc':   i.get('tipoDocumento', ''),
+        'tipo_doc':   tipo_doc,
     }
 
 
@@ -463,7 +468,7 @@ def _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id):
         'meio':                       'D',
     }
     if orgao_id:
-        params['orgaoId'] = orgao_id
+        params['orgao'] = orgao_id   # parâmetro correto conforme schema da API
 
     # 1ª tentativa: API REST direta
     lista, bloqueado = _buscar_via_api(params)
