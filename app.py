@@ -1421,9 +1421,10 @@ fetch('/dashboard_data/' + JID)
       var banner = document.createElement('div');
       banner.style.cssText = 'background:#78350f;color:#fef3c7;border-radius:10px;padding:12px 18px;'
         + 'margin-bottom:18px;font-size:.85rem;font-weight:600;border-left:4px solid #f59e0b;';
-      banner.innerHTML = '⚠️ ' + t1g + ' processo(s) de 1º grau foram detectados na captura DJEN e '
+      banner.innerHTML = '⚠️ ' + t1g + ' processo(s) sem acórdão de Turma/Câmara foram '
         + '<strong>excluídos das estatísticas e gráficos acima</strong>. '
-        + 'Esses processos são de Varas (não de Turmas/Câmaras) e aparecem separados no final da tabela.';
+        + 'Podem ser sentenças de 1º grau ou processos ainda aguardando julgamento pela Turma. '
+        + 'Aparecem separados no final da tabela.';
       document.getElementById('cards-wrap').before(banner);
     }
 
@@ -1555,11 +1556,9 @@ fetch('/dashboard_data/' + JID)
       if (tp === 'ACÓRDÃO' || tp === 'ACORDAO')
         return '<span class="badge badge-acordao">🏛️ ACÓRDÃO</span>';
       if (tp === 'SENTENÇA' || tp === 'SENTENCA') {
-        if (p.grau === '1g')
-          return '<span class="badge badge-1g">⚖️ SENT. 1º GRAU</span>';
-        if (p.dist2g === 'SIM' && p.tem_ac !== 'SIM')
+        if (p.dist2g === 'SIM')
           return '<span class="badge badge-sent-ag">⏳ SENT. (aguard. acórdão)</span>';
-        return '<span class="badge badge-sent">⚖️ SENTENÇA</span>';
+        return '<span class="badge badge-1g">⚖️ SENT. 1º GRAU</span>';
       }
       if (tp === 'NÃO LOCALIZADO') return '<span class="badge badge-outro">❓ N. LOC.</span>';
       if (tp === 'ERRO')           return '<span class="badge badge-outro">❌ ERRO</span>';
@@ -1612,7 +1611,7 @@ fetch('/dashboard_data/' + JID)
         rows += '<tr><td colspan="8" style="background:#1a1a0a;color:#f59e0b;font-weight:700;'
           + 'font-size:.8rem;padding:10px 14px;text-transform:uppercase;letter-spacing:.5px;'
           + 'border-top:2px solid #78350f;border-bottom:1px solid #78350f;">'
-          + '⚠️ Processos de 1º Grau — excluídos das estatísticas acima ('
+          + '⚠️ Sentenças / Processos sem acórdão de Turma — excluídos das estatísticas acima ('
           + procs1g.length + ')</td></tr>';
         procs1g.forEach(function(p, i){ rows += _buildRow(p, i); });
       }
@@ -1896,16 +1895,15 @@ def dashboard_data(job_id):
 
     linhas = job.get('linhas', [])
 
-    def _e_2g(l):
-        """Processo de 2º grau = acórdão OU já distribuído no 2g."""
-        tp     = (l.get("TIPO")               or "").strip().upper()
-        dist2g = (l.get("DISTRIBUÍDO 2º GRAU") or "").strip()
-        return tp in ("ACÓRDÃO", "ACORDAO") or dist2g == "SIM"
+    def _e_acordao(l):
+        """Apenas acórdãos confirmados contam como decisão de Turma/Câmara."""
+        tp = (l.get("TIPO") or "").strip().upper()
+        return tp in ("ACÓRDÃO", "ACORDAO")
 
     _tipos_ignorar = {"ERRO", "NÃO LOCALIZADO", "NAO LOCALIZADO"}
-    linhas_2g = [l for l in linhas if _e_2g(l)]
-    linhas_1g = [l for l in linhas if not _e_2g(l)
-                 and (l.get("TIPO") or "").strip().upper() not in _tipos_ignorar]
+    linhas_2g = [l for l in linhas if _e_acordao(l)]
+    linhas_outros = [l for l in linhas if not _e_acordao(l)
+                     and (l.get("TIPO") or "").strip().upper() not in _tipos_ignorar]
 
     status_counts  = Counter()
     materia_counts = Counter()
@@ -1945,14 +1943,14 @@ def dashboard_data(job_id):
         }
 
     processos = (
-        [_proc_dict(l, "2g") for l in linhas_2g] +
-        [_proc_dict(l, "1g") for l in linhas_1g]
+        [_proc_dict(l, "2g")    for l in linhas_2g] +
+        [_proc_dict(l, "outros") for l in linhas_outros]
     )
 
     return jsonify({
         "total":          len(linhas),
         "total_2g":       len(linhas_2g),
-        "total_1g":       len(linhas_1g),
+        "total_1g":       len(linhas_outros),
         "status_counts":  dict(status_counts.most_common()),
         "materia_counts": dict(materia_counts.most_common()),
         "tipo_counts":    dict(tipo_counts.most_common()),
