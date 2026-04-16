@@ -612,37 +612,49 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         filtro_rel = f" | Relator: {relator_filtro}" if relator_filtro else ""
         log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
 
-        # Tipos de decisão de mérito confirmados no DJEN do TJAM:
-        #   DECISÃO DO RELATOR            — Turmas Recursais (formato legado)
-        #   COM/SEM JULGAMENTO DE MÉRITO  — decisões PJe legado
-        #   JUNTADA / ACÓRDÃO             — outros tribunais
-        # A partir de 2026 o TJAM envia o acórdão embutido numa INTIMAÇÃO —
-        # por isso também inspecionamos o corpo do texto.
-        _TIPOS_ACORDAO = {
-            'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
-            'ACÓRDÃO', 'ACORDAO', 'DECISÃO DO RELATOR',
+        # ── Filtro "apenas acórdãos" ──────────────────────────────────────────
+        # Tipos que identificam acórdão/decisão de mérito sem precisar checar órgão
+        _TIPOS_DIRETO = {
+            'ACÓRDÃO', 'ACORDAO', 'DECISÃO DO RELATOR', 'DECISAO DO RELATOR',
         }
-        # Palavras que, no corpo da publicação, indicam decisão de mérito
-        # (usadas quando tipoDocumento == 'INTIMAÇÃO' a partir de 2026)
+        # Tipos de decisão que exigem confirmação de órgão 2g para serem aceitos
+        # (evita incluir sentenças e despachos de Varas e JE)
+        _TIPOS_PRECISA_2G = {
+            'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
+            'DECISÃO', 'DECISAO',
+            'DECISÃO INICIAL', 'DECISAO INICIAL',
+            'DECISÃO MONOCRÁTICA', 'DECISAO MONOGRATICA',
+            'SENTENÇA', 'SENTENCA',
+            'EMBARGOS',
+        }
+        # Palavras no corpo do texto que identificam acórdão embutido (fallback)
         _KW_TEXTO_ACORDAO = (
-            'ACORDAM',              # início canônico do dispositivo de todo acórdão
-            'RECURSO CONHECIDO',    # típico em Turmas Recursais
-            'NEGADO PROVIMENTO',
-            'DADO PROVIMENTO',
-            'RECURSO PROVIDO',
-            'RECURSO IMPROVIDO',
-            'RECURSO DESPROVIDO',
-            'SENTENÇA ANULADA',
-            'ACORDO HOMOLOGADO',
-            'EXTINTO SEM JULGAMENTO',
+            'ACORDAM', 'RECURSO CONHECIDO', 'NEGADO PROVIMENTO',
+            'DADO PROVIMENTO', 'RECURSO PROVIDO', 'RECURSO IMPROVIDO',
+            'RECURSO DESPROVIDO', 'SENTENÇA ANULADA', 'ACORDO HOMOLOGADO',
         )
 
+        def _e_orgao_2g_pub(orgao):
+            return 'TURMA' in orgao or 'CAMARA' in orgao or 'CÂMARA' in orgao
+
         def _e_acordao_pub(p):
-            """True se a publicação contém uma decisão de mérito."""
-            td = p.get('tipo_doc', '')
-            if any(kw in td for kw in _TIPOS_ACORDAO):
+            """True se a publicação é acórdão/decisão de 2º grau."""
+            td  = p.get('tipo_doc', '')    # já em .upper() (normalizado em djen.py)
+            org = p.get('turma_djen', '')  # já em .upper()
+            # 1. Ata de sessão das Turmas Recursais (TJAM 2026)
+            if 'ATA DE SESS' in td:
                 return True
-            # Intimação com acórdão embutido (mudança API TJAM 2026)
+            # 2. Votos das Câmaras Cíveis/Criminais
+            if 'VOTOS' in td:
+                return True
+            # 3. Tipos que são acórdão por definição (independente do órgão)
+            if any(kw in td for kw in _TIPOS_DIRETO):
+                return True
+            # 4. Tipos de decisão genéricos — aceita apenas se órgão for 2g
+            for kw in _TIPOS_PRECISA_2G:
+                if kw in td:
+                    return not org or _e_orgao_2g_pub(org)
+            # 5. Fallback: texto do corpo contém indicadores de acórdão
             texto_up = p.get('texto', '').upper()
             return any(kw in texto_up for kw in _KW_TEXTO_ACORDAO)
 
@@ -666,15 +678,6 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
 
         if filtro_tipo_doc:
             antes = len(processos_djen)
-            tipos_vistos = sorted(set(p.get('tipo_doc', '') for p in processos_djen))
-            log(f"[DIAG] tipo_doc únicos ({len(tipos_vistos)}): {tipos_vistos}")
-
-            # Amostra de texto das INTIMAÇÃO para diagnóstico (3 primeiras)
-            amostras = [p for p in processos_djen if 'INTIMA' in p.get('tipo_doc', '')][:3]
-            for ap in amostras:
-                trecho = ap.get('texto', '')[:120].replace('\n', ' ')
-                log(f"[DIAG] INTIMAÇÃO texto: {trecho!r}")
-
             processos_djen = [p for p in processos_djen if _e_acordao_pub(p)]
             log(f"🔍 Filtro acórdão: {len(processos_djen)}/{antes} publicações mantidas.")
             if not processos_djen:
