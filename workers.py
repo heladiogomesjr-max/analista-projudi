@@ -165,7 +165,7 @@ def _montar_linha(numero, dados_projudi, resultado_ia):
         "DISTRIBUÍDO 2º GRAU":  "SIM" if grau == 2 else "NÃO",
         "TEM ACÓRDÃO 2º GRAU":  "SIM" if tem_acordao else "NÃO",
         "TRANSITADO EM JULGADO? (SIM OU NÃO)":
-                                "SIM" if dados_projudi.get("transitado") else "NÃO",
+                                resultado_ia.get("TRANSITADO") or ("SIM" if dados_projudi.get("transitado") else "NÃO"),
         "TRANSITADO 1º GRAU":   "SIM" if dados_projudi.get("transitado_1g") else "NÃO",
     }
 
@@ -355,6 +355,7 @@ def _processar_numero(page, numero, url_2g, url_1g, api_key, log, modelo_ia=None
         api_key, log, model=modelo_ia, nome_advogado=nome_advogado or "",
         texto_embargos_principal=texto_embargos_principal,
         texto_sentenca_embargos=texto_sentenca_embargos,
+        texto_movimentos=dados.get("texto_movimentos", ""),
     )
     log(f"   ✅ {tipo} | {resultado_ia.get('DECISAO','')} | {resultado_ia.get('MATERIA','')}")
 

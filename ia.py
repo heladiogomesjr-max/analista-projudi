@@ -229,6 +229,17 @@ PASSO 3 — Combine (DECISAO reflete SEMPRE a perspectiva do consumidor):
 
 ⚠️ VERIFICAÇÃO: DECISAO deve ser CONSISTENTE com o RACIOCINIO. Revise se houver contradição.
 
+═══ REGRAS DE TRÂNSITO EM JULGADO ═══
+TRANSITADO = "SIM" quando qualquer um destes sinais estiver presente em QUALQUER documento
+(acórdão, sentença, movimentos, certidões):
+  • "transitado em julgado" / "trânsito em julgado" / "certidão de trânsito"
+  • "baixa definitiva" / "baixado definitivamente" / "baixa e arquivamento"
+  • "certifico o trânsito" / "certifico que transitou"
+  • Data de trânsito explicitamente informada (ex: "transitou em 12/03/2024")
+  • Movimento de arquivo definitivo ou certidão de encerramento
+TRANSITADO = "NÃO" quando nenhum desses sinais estiver presente.
+⚠️ Não confunda "publicado o acórdão" com "transitado em julgado" — publicação ≠ trânsito.
+
 ═══ REGRAS DE MATÉRIA ═══
 Fontes (em ordem): [ARQUIVO: ...] no texto → ementa/cabeçalho → fatos da petição inicial.
 PRIORIDADE: petição inicial é a fonte principal para identificar a matéria.
@@ -375,12 +386,16 @@ ADVOGADO DO AUTOR: {nome_advogado_hint}
 ══ PETIÇÃO INICIAL (fonte para MATÉRIA e valores de repetição de indébito) ══
 {texto_peticao}
 
+══ HISTÓRICO DE MOVIMENTOS DO PROCESSO (use para determinar TRANSITADO) ══
+{texto_movimentos}
+
 Retorne SOMENTE este JSON (sem markdown).
 IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógica do que você escreveu no RACIOCINIO.
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
   "RACIOCINIO": "Análise comparativa obrigatória em 4 partes: (0) CONTEXTO DO PROCESSO — o que a petição inicial contesta (produto/serviço), o que o consumidor pede, e o que a sentença de 1º grau decidiu. (1) DISPOSITIVO DO ACÓRDÃO — cite a frase exata do dispositivo (ex: 'ACORDAM negar provimento ao recurso interposto pelo banco'). Quem recorreu? O resultado favorece o consumidor ou o banco? (2) ACORDO OU EXTINÇÃO — houve menção a acordo, transação ou homologação em qualquer documento? Se sim, descreva. Se o processo foi extinto, qual foi o motivo exato (processual sem mérito, ou extinção por acordo)? (3) RESULTADO CONCRETO — se FAVORÁVEL: qual benefício o consumidor obteve (danos morais R$ X, danos materiais R$ Y, inexigibilidade de débito, suspensão de desconto)? Se DESFAVORÁVEL: o que foi negado? Discrimine valores e tutelas. NUNCA escreva apenas 'recurso provido' sem explicar o que isso significa para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
+  "TRANSITADO": "SIM se identificou sinal de trânsito em julgado em qualquer documento ou no histórico de movimentos. NÃO caso contrário.",
   "MATERIA": "SIGLA_DA_MATERIA",
   "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor material acordado se informado.",
   "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor moral acordado se informado."
@@ -594,7 +609,8 @@ def extrair_partes(texto):
 def classificar(numero, tipo, turma_vara, relator_juiz,
                 partes, texto_principal, texto_sentenca, texto_peticao,
                 api_key, log, model=None, nome_advogado="",
-                texto_embargos_principal="", texto_sentenca_embargos=""):
+                texto_embargos_principal="", texto_sentenca_embargos="",
+                texto_movimentos=""):
     """Classifica o processo com a LLM escolhida. Possui mecanismo de retentativa."""
     model_usar = model if model else MODELO_PADRAO
     provider   = _detectar_provider(model_usar)
@@ -634,6 +650,7 @@ def classificar(numero, tipo, turma_vara, relator_juiz,
         texto_sentenca           = _trim(texto_sentenca,           15000, tail=4000) or "(não extraída)",
         texto_sentenca_embargos  = _trim(texto_sentenca_embargos,  10000, tail=3000) or "(não extraída)",
         texto_peticao            = _trim(texto_peticao,            20000, tail=0)    or "(não extraída)",
+        texto_movimentos         = texto_movimentos[:5000] if texto_movimentos else "(não disponível)",
     )
 
     # ── Cache ──────────────────────────────────────────────────

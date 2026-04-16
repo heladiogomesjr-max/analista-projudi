@@ -562,26 +562,29 @@ def _e_embargos(texto_evento):
 def _extrair_data_e_transito(page):
     """
     Lê a tabela de movimentações e retorna:
-      data_decisao: data (DD/MM/YYYY) do evento de sentença ou acórdão
-      transitado:   True se houver evento de trânsito em julgado
+      data_decisao:    data (DD/MM/YYYY) do evento de sentença ou acórdão
+      transitado:      True se houver evento de trânsito em julgado (por keyword)
+      texto_movimentos: todos os eventos formatados como texto para a IA
     """
     eventos = _ler_tabela(page)
     data_decisao = ""
     transitado   = False
     palavras_decisao = PALAVRAS_EVENTO["sentenca"] + PALAVRAS_EVENTO["acordao"]
     nomes_decisao    = ARQUIVOS_DOC["sentenca"] + ARQUIVOS_DOC["acordao"]
+    linhas_mov = []
     for ev in eventos:
         tl = ev['texto'].lower()
         if any(p in tl for p in _PALAVRAS_TRANSITO):
             transitado = True
-        # Considera evento de decisão se bater pelo texto OU pelo nome do arquivo
         é_decisao = (any(p in tl for p in palavras_decisao)
                      or any(a in nomes_decisao for a in ev.get('arquivos', [])))
         if not data_decisao and é_decisao:
             m = re.search(r'\b(\d{2}/\d{2}/\d{4})\b', ev['texto'])
             if m:
                 data_decisao = m.group(1)
-    return data_decisao, transitado
+        linhas_mov.append(ev['texto'])
+    texto_movimentos = "\n".join(linhas_mov)
+    return data_decisao, transitado, texto_movimentos
 
 
 def _extrair_doc(page, evento, url_retorno, log):
@@ -1010,6 +1013,8 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
     data_decisao            = ""
     transitado              = False
     transitado_1g           = False   # trânsito especificamente no 1º grau
+    texto_movimentos        = ""      # histórico de movimentos (para a IA avaliar trânsito)
+    texto_movimentos_1g     = ""
     juiz_sentenca           = ""      # juiz do 1º grau (quando processo vem do 2g sem acórdão)
     vara_sentenca           = ""
 
@@ -1058,7 +1063,7 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
             except Exception:
                 time.sleep(2)
             if _clicar_aba(page, "Movimentações"):
-                data_decisao, transitado = _extrair_data_e_transito(page)
+                data_decisao, transitado, texto_movimentos = _extrair_data_e_transito(page)
                 if extrair_textos:
                     docs = _extrair_movimentacoes(page, ["acordao"], url_proc_2g, log)
                     texto_acordao          = docs.get("acordao", "")
@@ -1100,10 +1105,12 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                 if juiz_sentenca:
                     log(f"   1g: {vara_sentenca or '?'} | {juiz_sentenca or '?'}")
                 if _clicar_aba(page, "Movimentações"):
-                    data_1g, transitado_1g = _extrair_data_e_transito(page)
+                    data_1g, transitado_1g, texto_movimentos_1g = _extrair_data_e_transito(page)
                     if not data_decisao:
                         data_decisao = data_1g
                         transitado   = transitado_1g
+                    if not texto_movimentos:
+                        texto_movimentos = texto_movimentos_1g
                     if extrair_textos:
                         # Extrai sentença primeiro
                         docs_1g = _extrair_movimentacoes(
@@ -1163,8 +1170,9 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
 
             try:
                 if _clicar_aba(page, "Movimentações"):
-                    data_decisao, transitado = _extrair_data_e_transito(page)
+                    data_decisao, transitado, texto_movimentos = _extrair_data_e_transito(page)
                     transitado_1g = transitado   # processo só no 1g: transitado = transitado_1g
+                    texto_movimentos_1g = texto_movimentos
                     if extrair_textos:
                         # Extrai sentença primeiro
                         docs_1g = _extrair_movimentacoes(
@@ -1205,4 +1213,5 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
         "data_decisao":             data_decisao,
         "transitado":               transitado,
         "transitado_1g":            transitado_1g,
+        "texto_movimentos":         texto_movimentos,
     }
