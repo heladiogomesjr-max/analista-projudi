@@ -284,13 +284,18 @@ def _normalizar_item(i):
     data_fmt = (
         f"{data[8:10]}/{data[5:7]}/{data[0:4]}" if len(data) == 10 else data
     )
-    texto_pub = limpar_html(i.get('texto', '') or '')
+    texto_pub = limpar_html(
+        i.get('texto', '') or i.get('conteudo', '') or
+        i.get('textoPublicacao', '') or ''
+    )
+    nome_orgao = i.get('nomeOrgao') or i.get('orgao') or ''
+    tipo_doc   = i.get('tipoDocumento') or i.get('tipo_documento') or ''
     return {
         'PROCESSO':   num_fmt,
-        'turma_djen': str(i.get('orgao', '')).upper(),
+        'turma_djen': str(nome_orgao).upper(),
         'data_pub':   data_fmt,
         'texto':      texto_pub,
-        'tipo_doc':   str(i.get('tipo_documento', '')).upper(),
+        'tipo_doc':   str(tipo_doc).upper(),
     }
 
 

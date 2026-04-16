@@ -620,27 +620,43 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         }
 
         if filtro_tipo_doc:
-            log(f"   ℹ️  Modo acórdão: busca global + filtro de turma e tipo client-side")
+            log(f"   ℹ️  Modo acórdão: busca global + filtro por tipo de documento")
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
+
+            from collections import Counter as _C
+
+            # ── Diagnóstico 1: TODOS os tipos de documento (sem truncar) ──
+            dist_tipo = _C(p.get('tipo_doc', '') for p in processos_djen).most_common()
+            log(f"   🔎 [DIAG] Tipos de documento — {len(processos_djen)} publicações totais:")
+            for td, n in dist_tipo:
+                marca = ' ✓' if any(kw in td for kw in _TIPOS_ACORDAO) else ''
+                log(f"   🔎  tipo='{td}': {n}{marca}")
+
+            # ── Diagnóstico 2: TODOS os órgãos (sem truncar) ──
+            dist_orgao = _C(p.get('turma_djen', '') for p in processos_djen).most_common()
+            log(f"   🔎 [DIAG] Órgãos — {len(processos_djen)} publicações totais:")
+            for nome, n in dist_orgao:
+                log(f"   🔎  orgao='{nome}': {n}")
+
+            # ── Diagnóstico 3: para cada acórdão encontrado, mostra órgão e processo ──
+            acordaos_diag = [p for p in processos_djen
+                             if any(kw in p.get('tipo_doc', '') for kw in _TIPOS_ACORDAO)]
+            if acordaos_diag:
+                log(f"   🔎 [DIAG] Acórdãos encontrados ({len(acordaos_diag)}):")
+                for p in acordaos_diag:
+                    log(f"   🔎  proc={p.get('PROCESSO','')} | orgao='{p.get('turma_djen','')}' | tipo='{p.get('tipo_doc','')}'")
+            else:
+                log(f"   ⚠️  [DIAG] NENHUM acórdão encontrado nos {len(processos_djen)} resultados.")
 
             if turma and turma != '0':
                 orgao_ids_list = djen._resolver_orgaos(turma)
                 if orgao_ids_list:
-                    # A API retorna 'orgao' como string (nome do órgão) — comparar por nome
                     nomes_alvo = {
                         djen._NOMES_ORGAOS.get(oid, '').upper()
                         for oid in orgao_ids_list
                     }
                     nomes_alvo.discard('')
-
-                    # Diagnóstico: top turma_djen presentes nos resultados globais
-                    from collections import Counter as _C
-                    dist = _C(p.get('turma_djen', '') for p in processos_djen).most_common(10)
-                    log(f"   🔎 Nomes esperados: {sorted(nomes_alvo)}")
-                    for nome, n in dist:
-                        marca = ' ✓' if nome in nomes_alvo else ''
-                        log(f"   🔎  '{nome}': {n}x{marca}")
-
+                    log(f"   🔎 [DIAG] Nomes esperados para a turma: {sorted(nomes_alvo)}")
                     antes = len(processos_djen)
                     processos_djen = [p for p in processos_djen
                                       if p.get('turma_djen', '') in nomes_alvo]
