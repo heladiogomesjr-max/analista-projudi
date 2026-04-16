@@ -591,10 +591,13 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                        advogado_key=None, filtro_tipo_doc=False):
     job = jobs[job_id]
     job['advogado_key'] = advogado_key or 'luis_albert'
+    _t0 = time.time()
 
     def log(msg):
-        print(msg, flush=True)
-        job['logs'].append(msg)
+        elapsed = time.time() - _t0
+        msg_t = f"[{elapsed:6.1f}s] {msg}"
+        print(msg_t, flush=True)
+        job['logs'].append(msg_t)
 
     def pct(p, sub=''):
         job['pct'] = p
