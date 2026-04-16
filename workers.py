@@ -641,6 +641,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
 
         if filtro_tipo_doc:
             antes = len(processos_djen)
+            # Diagnóstico: mostra todos os tipo_doc únicos antes de filtrar
+            tipos_vistos = sorted(set(p.get('tipo_doc', '') for p in processos_djen))
+            log(f"[DIAG] tipo_doc únicos ({len(tipos_vistos)}): {tipos_vistos}")
             processos_djen = [p for p in processos_djen
                               if any(kw in p.get('tipo_doc', '')
                                      for kw in _TIPOS_ACORDAO)]
