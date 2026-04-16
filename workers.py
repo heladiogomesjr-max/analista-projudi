@@ -620,45 +620,11 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         }
 
         if filtro_tipo_doc:
-            log(f"   ℹ️  Modo acórdão: busca global + filtro de turma e tipo client-side")
+            log(f"   ℹ️  Modo acórdão: busca global + filtro por tipo de documento")
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
-
-            from collections import Counter as _C
-
-            # [DIAG] Todos os tipo_doc encontrados (sem truncar)
-            dist_tipo = _C(p.get('tipo_doc', '') for p in processos_djen).most_common()
-            log(f"   🔎 [DIAG] tipo_doc — {len(processos_djen)} publicações:")
-            for td, n in dist_tipo:
-                marca = ' ✓' if any(kw in td for kw in _TIPOS_ACORDAO) else ''
-                log(f"   🔎  tipo='{td}': {n}{marca}")
-
-            # [DIAG] Todos os órgãos encontrados (sem truncar)
-            dist_orgao = _C(p.get('turma_djen', '') for p in processos_djen).most_common()
-            log(f"   🔎 [DIAG] orgao — {len(processos_djen)} publicações:")
-            for nome_org, n in dist_orgao:
-                log(f"   🔎  orgao='{nome_org}': {n}")
-
-            # [DIAG] Cada acórdão encontrado com seu órgão de origem
-            acordaos_diag = [p for p in processos_djen
-                             if any(kw in p.get('tipo_doc', '') for kw in _TIPOS_ACORDAO)]
-            if acordaos_diag:
-                log(f"   🔎 [DIAG] Acórdãos ({len(acordaos_diag)}):")
-                for p in acordaos_diag:
-                    log(f"   🔎  proc={p.get('PROCESSO','')} | orgao='{p.get('turma_djen','')}' | tipo='{p.get('tipo_doc','')}'")
-
-            if turma and turma != '0':
-                orgao_ids_list = djen._resolver_orgaos(turma)
-                if orgao_ids_list:
-                    nomes_alvo = {
-                        djen._NOMES_ORGAOS.get(oid, '').upper()
-                        for oid in orgao_ids_list
-                    }
-                    nomes_alvo.discard('')
-                    log(f"   🔎 [DIAG] Nomes esperados para a turma: {sorted(nomes_alvo)}")
-                    antes = len(processos_djen)
-                    processos_djen = [p for p in processos_djen
-                                      if p.get('turma_djen', '') in nomes_alvo]
-                    log(f"   🔍 Filtro turma: {len(processos_djen)}/{antes} publicações mantidas.")
+            # Filtro de turma não se aplica em modo acórdão: no TJAM/DJEN, acórdãos
+            # de Turmas Recursais são publicados sob o órgão de 1º grau (vara/juizado
+            # que originou o processo), não sob o órgão da turma que decidiu o recurso.
         else:
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
 
