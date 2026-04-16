@@ -154,14 +154,35 @@ Você analisa processos em que um advogado defende consumidores contra bancos/em
 
   ⚠️ Se ACÓRDÃO DE MÉRITO e SENTENÇA DE MÉRITO estiverem "(não extraído)", DECISAO = "SEM PARECER CONCLUSIVO".
 
+═══ DISPOSITIVO — FONTE SOBERANA DO RESULTADO ═══
+O dispositivo final do acórdão (frases que começam com "ACORDAM", "Ante o exposto", "Por tais
+fundamentos", "Diante do exposto") é a ÚNICA fonte para determinar DECISAO.
+
+⚠️ O CORPO DO VOTO PODE CONTER ERROS GRAVES — nunca o use como base isolada:
+  — Afirmações factualmente erradas sobre o resultado de 1º grau (ex: relator escreve
+    "julgando improcedente" mas a sentença foi procedente em parte)
+  — Trechos copiados de outro processo com produto/fatos diferentes (ex: menciona "consórcio"
+    mas a ação é sobre conta corrente e descontos — esse trecho veio de outro julgado)
+  — Argumentos do VOTO VENCIDO que não prevaleceu na votação por maioria
+Se o corpo do voto contradiz o dispositivo, o DISPOSITIVO PREVALECE SEMPRE.
+Leia o dispositivo ANTES de qualquer outra parte do texto.
+
+⚠️ "RÉU" NA EMENTA DE ACÓRDÃO DE RECURSO: Em recursos inominados, "réu" na ementa
+refere-se ao réu da ação ORIGINAL. Em segunda instância, esse mesmo réu pode ser o
+RECORRIDO (quem está ganhando o recurso). Exemplo: ementa diz "réu desincumbiu-se da prova"
+— isso NÃO significa que o banco ganhou. Verifique SEMPRE quem é o recorrente no recurso
+antes de interpretar qualquer menção a "réu" ou "recorrido" na ementa.
+
 ═══ REGRAS DE DECISÃO ═══
 Valores válidos para DECISAO:
   • FAVORÁVEL | DESFAVORÁVEL | SENTENÇA ANULADA | EXTINTO SEM MÉRITO | ACORDO HOMOLOGADO | SEM PARECER CONCLUSIVO
 
 PASSO 0 — Identifique o advogado do AUTOR (subscrição da petição ou cabeçalho do acórdão).
 PASSO 1 — Identifique o RECORRENTE. O consumidor pode ser RECORRENTE ou RECORRIDO — leia quem é quem.
-PASSO 2 — Resultado do julgamento:
-  "DAR PROVIMENTO" → RECORRENTE ganhou | "NEGAR PROVIMENTO" → RECORRENTE perdeu
+PASSO 2 — Localize o dispositivo e identifique o resultado:
+  "DAR PROVIMENTO" / "PROVIDO" → RECORRENTE ganhou
+  "NEGAR PROVIMENTO" / "DESPROVIDO" / "NÃO PROVIDO" → RECORRENTE perdeu
+  ⚠️ "RECURSO DESPROVIDO" com banco como RECORRENTE = banco perdeu = FAVORÁVEL ao consumidor
   "ANULAR/CASSAR SENTENÇA" → SENTENÇA ANULADA
   "EXTINTO" sem mérito (art. 485 CPC) → EXTINTO SEM MÉRITO — SOMENTE quando não há resolução de mérito: ilegitimidade, falta de interesse, coisa julgada, desistência, abandono.
   "homologo o acordo" / "acordo homologado" / "transação homologada" / "partes celebraram acordo" → ACORDO HOMOLOGADO
@@ -328,7 +349,7 @@ Retorne SOMENTE este JSON (sem markdown).
 IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógica do que você escreveu no RACIOCINIO.
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
-  "RACIOCINIO": "3 frases obrigatórias: (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
+  "RACIOCINIO": "4 frases obrigatórias: (0) Cite a frase exata do DISPOSITIVO que determina o resultado (ex: 'O dispositivo diz: ACORDAM negar provimento ao recurso do banco'). (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "MATERIA": "SIGLA_DA_MATERIA",
   "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor material acordado se informado.",
