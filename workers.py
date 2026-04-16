@@ -625,14 +625,25 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                 return
 
         # Filtro por tipo de documento (client-side — a API ignora o parâmetro server-side)
+        # Tipos de acórdão confirmados na API do TJAM:
+        #   JUNTADA DE ACÓRDÃO           — nomenclatura genérica PJe
+        #   COM JULGAMENTO DE MÉRITO     — acórdão com mérito (mais comum no TJAM)
+        #   SEM JULGAMENTO DE MÉRITO     — acórdão sem mérito
+        #   ACÓRDÃO PROVIMENTO NEGADO / PARCIAL / SENTENÇA REFORMADA / etc.
+        _TIPOS_ACORDAO = {
+            'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
+            'ACÓRDÃO', 'ACORDAO',
+        }
         if filtro_tipo_doc:
             antes = len(processos_djen)
-            processos_djen = [p for p in processos_djen
-                              if 'JUNTADA' in p.get('tipo_doc', '').upper()]
-            log(f"🔍 Filtro JUNTADA DE ACÓRDÃO: {len(processos_djen)}/{antes} publicações mantidas.")
+            def _e_acordao(p):
+                t = p.get('tipo_doc', '').upper()
+                return any(kw in t for kw in _TIPOS_ACORDAO)
+            processos_djen = [p for p in processos_djen if _e_acordao(p)]
+            log(f"🔍 Filtro acórdão: {len(processos_djen)}/{antes} publicações mantidas.")
             if not processos_djen:
                 job['status'] = 'error'
-                job['error']  = "Nenhuma publicação do tipo JUNTADA DE ACÓRDÃO encontrada no período."
+                job['error']  = "Nenhuma publicação de acórdão encontrada no período."
                 return
 
         numeros = [p['PROCESSO'] for p in processos_djen]
