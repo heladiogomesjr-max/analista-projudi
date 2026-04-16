@@ -165,7 +165,7 @@ def _buscar_via_api(params, usar_proxy=False):
             lista.append(_normalizar_item(i))
 
         pagina += 1
-        time.sleep(1.0)  # 1s entre páginas para não sobrecarregar a API
+        time.sleep(0.3)  # 0.3s entre páginas (1.0 era excessivo — API aguenta bem)
 
     return lista, False
 
@@ -460,27 +460,23 @@ def _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id):
         'dataDisponibilizacaoInicio': data_ini,
         'dataDisponibilizacaoFim':    data_fim,
         'siglaTribunal':              'TJAM',
-        'itensPorPagina':             20,   # 100 causa timeout na API
+        'itensPorPagina':             50,   # 100 causa timeout; 50 reduz páginas sem riscos
         'meio':                       'D',
     }
     if orgao_id:
-        params['orgaoId'] = orgao_id  # parâmetro que realmente filtra na API
+        params['orgaoId'] = orgao_id
 
     # 1ª tentativa: API REST direta
     lista, bloqueado = _buscar_via_api(params)
-    if not bloqueado:
-        # Se orgaoId foi especificado mas retornou vazio, o servidor (Oracle/proxy)
-        # pode não suportar orgaoId — força Playwright que usa browser real
-        if orgao_id and not lista:
-            return _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id)
-        return lista
+    if not bloqueado and lista:
+        return lista          # tem resultados — não precisa do proxy
 
-    # 2ª tentativa: proxy brasileiro
+    # 2ª tentativa: proxy brasileiro (sempre antes do Playwright)
     lista, bloqueado = _buscar_via_api(params, usar_proxy=True)
     if not bloqueado:
-        if orgao_id and not lista:
-            return _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id)
+        # Proxy respondeu (com ou sem itens): aceita o resultado.
+        # Vazio significa genuinamente sem publicações nesse período/órgão.
         return lista
 
-    # 3ª tentativa: Playwright
+    # 3ª tentativa: Playwright — só quando ambas as APIs estão bloqueadas
     return _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id)
