@@ -11,6 +11,7 @@ import re
 import time
 import requests
 from bs4 import BeautifulSoup
+from datetime import date, timedelta
 
 DJEN_API_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
 
@@ -405,8 +406,53 @@ def _resolver_orgaos(opcao_turma):
     return ids
 
 
+def _chunks_mensais(data_ini, data_fim):
+    """
+    Divide [data_ini, data_fim] em intervalos mensais.
+    Retorna lista de tuplas (ini_str, fim_str) no formato YYYY-MM-DD.
+    Intervalos ≤ 35 dias retornam um único chunk sem divisão.
+    """
+    ini = date.fromisoformat(data_ini)
+    fim = date.fromisoformat(data_fim)
+    if (fim - ini).days <= 35:
+        return [(data_ini, data_fim)]
+    chunks = []
+    cur = ini
+    while cur <= fim:
+        # Primeiro dia do próximo mês
+        if cur.month == 12:
+            prox = date(cur.year + 1, 1, 1)
+        else:
+            prox = date(cur.year, cur.month + 1, 1)
+        fim_chunk = min(prox - timedelta(days=1), fim)
+        chunks.append((cur.isoformat(), fim_chunk.isoformat()))
+        cur = prox
+    return chunks
+
+
 def _buscar_orgao(nome_adv, data_ini, data_fim, orgao_id):
-    """Busca publicações para um único órgão (ou todos se orgao_id=None)."""
+    """
+    Busca publicações para um único órgão (ou todos se orgao_id=None).
+    Intervalos > 35 dias são divididos em chunks mensais para evitar
+    timeout e HTTP 500 da API ao paginar resultados com orgaoId.
+    """
+    chunks = _chunks_mensais(data_ini, data_fim)
+    if len(chunks) > 1:
+        vistos = set()
+        lista  = []
+        for ini_c, fim_c in chunks:
+            for item in _buscar_orgao_chunk(nome_adv, ini_c, fim_c, orgao_id):
+                proc = item.get('PROCESSO', '')
+                if proc and proc not in vistos:
+                    vistos.add(proc)
+                    lista.append(item)
+            time.sleep(0.5)
+        return lista
+    return _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id)
+
+
+def _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id):
+    """Busca publicações para um único órgão num intervalo curto (≤ 35 dias)."""
     params = {
         'nomeAdvogado':               nome_adv,
         'dataDisponibilizacaoInicio': data_ini,
