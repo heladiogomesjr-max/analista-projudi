@@ -631,6 +631,14 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             if turma and turma != '0':
                 orgao_ids_sel = set(djen._resolver_orgaos(turma))
                 if orgao_ids_sel:
+                    # Diagnóstico: top orgao_id presentes nos resultados
+                    from collections import Counter as _C
+                    dist_oid = _C((p.get('orgao_id'), p.get('turma_djen','')[:40])
+                                  for p in processos_djen).most_common(10)
+                    log(f"   🔎 orgao_ids buscados: {sorted(orgao_ids_sel)}")
+                    for (oid, nome), n in dist_oid:
+                        marca = ' ✓' if oid in orgao_ids_sel else ''
+                        log(f"   🔎  id={oid} ({nome}): {n}x{marca}")
                     antes = len(processos_djen)
                     processos_djen = [p for p in processos_djen
                                       if p.get('orgao_id') in orgao_ids_sel]
