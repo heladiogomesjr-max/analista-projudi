@@ -607,7 +607,35 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         pct(5, "Buscando no DJEN...")
         filtro_rel = f" | Relator: {relator_filtro}" if relator_filtro else ""
         log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
-        processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
+
+        # Tipos de acórdão confirmados na API do TJAM:
+        #   COM JULGAMENTO DE MÉRITO / SEM JULGAMENTO DE MÉRITO — mais comuns no TJAM
+        #   JUNTADA DE ACÓRDÃO / ACÓRDÃO ... — nomenclatura de outros tribunais PJe
+        _TIPOS_ACORDAO = {
+            'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
+            'ACÓRDÃO', 'ACORDAO',
+        }
+
+        if filtro_tipo_doc:
+            # Publicações de acórdão são indexadas sob orgaoId diferente dos órgãos selecionados.
+            # Buscar sem orgaoId (global) e filtrar turma + tipo client-side evita o problema de
+            # deduplicação onde distribuições de processo bloqueiam os acórdãos do mesmo processo.
+            log(f"   ℹ️  Modo acórdão: busca global + filtro de turma e tipo client-side")
+            processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
+
+            # Filtra pela turma selecionada (se não for 'todas')
+            if turma and turma != '0':
+                orgao_ids_sel = djen._resolver_orgaos(turma)
+                nomes_turmas  = {djen._NOMES_ORGAOS.get(oid, '').upper()
+                                 for oid in orgao_ids_sel} - {''}
+                if nomes_turmas:
+                    antes = len(processos_djen)
+                    processos_djen = [p for p in processos_djen
+                                      if p.get('turma_djen', '') in nomes_turmas]
+                    log(f"   🔍 Filtro turma: {len(processos_djen)}/{antes} publicações mantidas.")
+        else:
+            processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
+
         if not processos_djen:
             job['status'] = 'error'
             job['error']  = "Nenhum processo encontrado no DJEN com esses parâmetros."
@@ -624,28 +652,11 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                 job['error']  = f"Nenhuma publicação contém a palavra-chave '{filtro_texto}'."
                 return
 
-        # Filtro por tipo de documento (client-side — a API ignora o parâmetro server-side)
-        # Tipos de acórdão confirmados na API do TJAM:
-        #   JUNTADA DE ACÓRDÃO           — nomenclatura genérica PJe
-        #   COM JULGAMENTO DE MÉRITO     — acórdão com mérito (mais comum no TJAM)
-        #   SEM JULGAMENTO DE MÉRITO     — acórdão sem mérito
-        #   ACÓRDÃO PROVIMENTO NEGADO / PARCIAL / SENTENÇA REFORMADA / etc.
-        _TIPOS_ACORDAO = {
-            'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
-            'ACÓRDÃO', 'ACORDAO',
-        }
-        # Log de diagnóstico: mostra distribuição real de tipo_doc
-        from collections import Counter as _Counter
-        dist_tipos = _Counter(p.get('tipo_doc', '(vazio)') for p in processos_djen)
-        for _t, _n in dist_tipos.most_common(10):
-            log(f"   📄 tipo_doc={_t!r}: {_n}x")
-
         if filtro_tipo_doc:
             antes = len(processos_djen)
-            def _e_acordao(p):
-                t = p.get('tipo_doc', '').upper()
-                return any(kw in t for kw in _TIPOS_ACORDAO)
-            processos_djen = [p for p in processos_djen if _e_acordao(p)]
+            processos_djen = [p for p in processos_djen
+                              if any(kw in p.get('tipo_doc', '').upper()
+                                     for kw in _TIPOS_ACORDAO)]
             log(f"🔍 Filtro acórdão: {len(processos_djen)}/{antes} publicações mantidas.")
             if not processos_djen:
                 job['status'] = 'error'
