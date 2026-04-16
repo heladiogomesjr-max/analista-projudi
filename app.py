@@ -1281,6 +1281,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#0f172a;color:#e2
 .badge-acordao{background:#1e3a8a;color:#93c5fd}
 .badge-sent-ag{background:#78350f;color:#fcd34d}
 .badge-sent{background:#134e4a;color:#5eead4}
+.badge-1g{background:#422006;color:#fdba74}
 .badge-outro{background:#1e293b;color:#94a3b8}
 /* badges de status */
 .badge-fav{background:#14532d;color:#4ade80}
@@ -1398,8 +1399,12 @@ function corStatus(s) {
 fetch('/dashboard_data/' + JID)
   .then(r => r.json())
   .then(function(d) {
+    var t2g = d.total_2g != null ? d.total_2g : d.total;
+    var t1g = d.total_1g || 0;
+
     document.getElementById('dash-sub').textContent =
-      d.total + ' processo(s) analisado(s)';
+      t2g + ' processo(s) de 2º grau analisado(s)' +
+      (t1g > 0 ? ' · ' + t1g + ' de 1º grau' : '');
 
     // Links de download
     if (d.tem_arquivo) {
@@ -1411,20 +1416,28 @@ fetch('/dashboard_data/' + JID)
       bd.href = '/download_relatorio/' + JID; bd.style.display = 'inline-block';
     }
 
-    // ── Cards de resumo ──────────────────────────────────────
+    // Banner de aviso para processos de 1º grau
+    if (t1g > 0) {
+      var banner = document.createElement('div');
+      banner.style.cssText = 'background:#78350f;color:#fef3c7;border-radius:10px;padding:12px 18px;'
+        + 'margin-bottom:18px;font-size:.85rem;font-weight:600;border-left:4px solid #f59e0b;';
+      banner.innerHTML = '⚠️ ' + t1g + ' processo(s) de 1º grau foram detectados na captura DJEN e '
+        + '<strong>excluídos das estatísticas e gráficos acima</strong>. '
+        + 'Esses processos são de Varas (não de Turmas/Câmaras) e aparecem separados no final da tabela.';
+      document.getElementById('cards-wrap').before(banner);
+    }
+
+    // ── Cards de resumo (baseados apenas em 2º grau) ────────
     var sc = d.status_counts || {};
     var fav  = sc['FAVORÁVEL'] || 0;
     var desf = sc['DESFAVORÁVEL'] || 0;
-    var semP = Object.entries(sc)
-      .filter(function(e){ return e[0] !== 'FAVORÁVEL' && e[0] !== 'DESFAVORÁVEL'; })
-      .reduce(function(s,e){ return s + e[1]; }, 0);
-    var aprov = d.total > 0 ? ((fav / d.total) * 100).toFixed(1) : '0.0';
+    var aprov = t2g > 0 ? ((fav / t2g) * 100).toFixed(1) : '0.0';
 
     var cardsHTML = [
-      {cls:'total', val: d.total,     lbl:'Total de Processos', sub:'analisados'},
-      {cls:'fav',   val: fav,         lbl:'Favoráveis',         sub:'para o consumidor'},
-      {cls:'desf',  val: desf,        lbl:'Desfavoráveis',      sub:'para o consumidor'},
-      {cls:'sem',   val: aprov + '%', lbl:'Aproveitamento',     sub:'decisões favoráveis'},
+      {cls:'total', val: t2g,         lbl:'2º Grau — Turmas/Câmaras', sub:'processos analisados'},
+      {cls:'fav',   val: fav,         lbl:'Favoráveis',               sub:'para o consumidor'},
+      {cls:'desf',  val: desf,        lbl:'Desfavoráveis',            sub:'para o consumidor'},
+      {cls:'sem',   val: aprov + '%', lbl:'Aproveitamento',           sub:'decisões favoráveis'},
     ].map(function(c) {
       return '<div class="card '+c.cls+'"><div class="card-val">'+c.val+'</div>'
            + '<div class="card-lbl">'+c.lbl+'</div>'
@@ -1432,8 +1445,8 @@ fetch('/dashboard_data/' + JID)
     }).join('');
     document.getElementById('cards-wrap').innerHTML = cardsHTML;
 
-    if (d.total === 0) return;
-    document.getElementById('charts-wrap').style.display = 'grid';
+    if (t2g === 0 && t1g === 0) return;
+    if (t2g > 0) document.getElementById('charts-wrap').style.display = 'grid';
 
     // ── Gráfico: STATUS DA DECISÃO (donut) ──────────────────
     var statusLabels = Object.keys(sc);
@@ -1536,77 +1549,74 @@ fetch('/dashboard_data/' + JID)
 
     // ── Tabela de processos ──────────────────────────────────
     var procs = d.processos || [];
+
+    function _buildTipoBadge(p) {
+      var tp = (p.tipo || '').toUpperCase();
+      if (tp === 'ACÓRDÃO' || tp === 'ACORDAO')
+        return '<span class="badge badge-acordao">🏛️ ACÓRDÃO</span>';
+      if (tp === 'SENTENÇA' || tp === 'SENTENCA') {
+        if (p.grau === '1g')
+          return '<span class="badge badge-1g">⚖️ SENT. 1º GRAU</span>';
+        if (p.dist2g === 'SIM' && p.tem_ac !== 'SIM')
+          return '<span class="badge badge-sent-ag">⏳ SENT. (aguard. acórdão)</span>';
+        return '<span class="badge badge-sent">⚖️ SENTENÇA</span>';
+      }
+      if (tp === 'NÃO LOCALIZADO') return '<span class="badge badge-outro">❓ N. LOC.</span>';
+      if (tp === 'ERRO')           return '<span class="badge badge-outro">❌ ERRO</span>';
+      return '<span class="badge badge-outro">' + (p.tipo || '—') + '</span>';
+    }
+
+    function _buildStBadge(st) {
+      if (!st) return '<span class="badge badge-st-nl">—</span>';
+      var s = st.toUpperCase();
+      if (s.includes('FAVOR') && !s.includes('DESFA')) return '<span class="badge badge-fav">✅ FAVORÁVEL</span>';
+      if (s.includes('DESFA'))    return '<span class="badge badge-desf">❌ DESFAVORÁVEL</span>';
+      if (s.includes('EXTINTO'))  return '<span class="badge badge-ext">🚫 EXTINTO S/ MÉRITO</span>';
+      if (s.includes('ANULAD'))   return '<span class="badge badge-anul">↩️ SENT. ANULADA</span>';
+      if (s.includes('SEM PAR'))  return '<span class="badge badge-sem">⚠️ SEM PARECER</span>';
+      if (s.includes('ACORDO'))   return '<span class="badge badge-fav">🤝 ACORDO</span>';
+      return '<span class="badge badge-st-nl">' + st + '</span>';
+    }
+
+    function _buildRow(p, idx) {
+      var st = (p.status || '').toUpperCase();
+      var rowCls = 'row-nl';
+      if (st.includes('FAVOR') && !st.includes('DESFA')) rowCls = 'row-fav';
+      else if (st.includes('DESFA')) rowCls = 'row-desf';
+      else if (st) rowCls = 'row-sem';
+      var matHtml = p.materia ? '<span class="mat-pill">'+p.materia+'</span>' : '<span style="color:#475569">—</span>';
+      var valHtml = p.valor   ? '<span class="val-txt">'+p.valor+'</span>'   : '<span style="color:#334155">—</span>';
+      var relHtml = p.relator ? '<span class="rel-name">'+p.relator+'</span>': '<span style="color:#475569">—</span>';
+      return '<tr class="'+rowCls+'">'
+        + '<td style="color:#475569;text-align:center;padding-left:8px">'+(idx+1)+'</td>'
+        + '<td><span class="proc-num">'+p.numero+'</span></td>'
+        + '<td>'+_buildTipoBadge(p)+'</td>'
+        + '<td>'+_buildStBadge(p.status)+'</td>'
+        + '<td>'+relHtml+'</td>'
+        + '<td>'+matHtml+'</td>'
+        + '<td>'+valHtml+'</td>'
+        + '<td><span class="date-txt">'+(p.data||'—')+'</span></td>'
+        + '</tr>';
+    }
+
     if (procs.length > 0) {
       var tbody = document.getElementById('proc-tbody');
+      var procs2g = procs.filter(function(p){ return p.grau !== '1g'; });
+      var procs1g = procs.filter(function(p){ return p.grau === '1g'; });
       var rows = '';
-      procs.forEach(function(p, i) {
-        // Classe de linha por status
-        var st = (p.status || '').toUpperCase();
-        var rowCls = 'row-nl';
-        if (st.includes('FAVOR') && !st.includes('DESFA')) rowCls = 'row-fav';
-        else if (st.includes('DESFA')) rowCls = 'row-desf';
-        else if (st) rowCls = 'row-sem';
 
-        // Badge de tipo/grau
-        var tipoBadge = '';
-        var tp = (p.tipo || '').toUpperCase();
-        if (tp === 'ACÓRDÃO' || tp === 'ACORDAO') {
-          tipoBadge = '<span class="badge badge-acordao">🏛️ ACÓRDÃO</span>';
-        } else if (tp === 'SENTENÇA' || tp === 'SENTENCA') {
-          if (p.dist2g === 'SIM' && p.tem_ac !== 'SIM') {
-            tipoBadge = '<span class="badge badge-sent-ag">⏳ SENT. (aguard. acórdão)</span>';
-          } else {
-            tipoBadge = '<span class="badge badge-sent">⚖️ SENTENÇA</span>';
-          }
-        } else if (tp === 'NÃO LOCALIZADO') {
-          tipoBadge = '<span class="badge badge-outro">❓ N. LOC.</span>';
-        } else if (tp === 'ERRO') {
-          tipoBadge = '<span class="badge badge-outro">❌ ERRO</span>';
-        } else {
-          tipoBadge = '<span class="badge badge-outro">' + (p.tipo || '—') + '</span>';
-        }
+      procs2g.forEach(function(p, i){ rows += _buildRow(p, i); });
 
-        // Badge de status
-        var stBadge = '';
-        if (!p.status) {
-          stBadge = '<span class="badge badge-st-nl">—</span>';
-        } else if (st.includes('FAVOR') && !st.includes('DESFA')) {
-          stBadge = '<span class="badge badge-fav">✅ FAVORÁVEL</span>';
-        } else if (st.includes('DESFA')) {
-          stBadge = '<span class="badge badge-desf">❌ DESFAVORÁVEL</span>';
-        } else if (st.includes('EXTINTO')) {
-          stBadge = '<span class="badge badge-ext">🚫 EXTINTO S/ MÉRITO</span>';
-        } else if (st.includes('ANULAD')) {
-          stBadge = '<span class="badge badge-anul">↩️ SENT. ANULADA</span>';
-        } else if (st.includes('SEM PAR')) {
-          stBadge = '<span class="badge badge-sem">⚠️ SEM PARECER</span>';
-        } else {
-          stBadge = '<span class="badge badge-st-nl">' + p.status + '</span>';
-        }
+      // Separador e seção 1g (se houver)
+      if (procs1g.length > 0) {
+        rows += '<tr><td colspan="8" style="background:#1a1a0a;color:#f59e0b;font-weight:700;'
+          + 'font-size:.8rem;padding:10px 14px;text-transform:uppercase;letter-spacing:.5px;'
+          + 'border-top:2px solid #78350f;border-bottom:1px solid #78350f;">'
+          + '⚠️ Processos de 1º Grau — excluídos das estatísticas acima ('
+          + procs1g.length + ')</td></tr>';
+        procs1g.forEach(function(p, i){ rows += _buildRow(p, i); });
+      }
 
-        var matHtml = p.materia
-          ? '<span class="mat-pill">' + p.materia + '</span>'
-          : '<span style="color:#475569">—</span>';
-
-        var valHtml = p.valor
-          ? '<span class="val-txt">' + p.valor + '</span>'
-          : '<span style="color:#334155">—</span>';
-
-        var relHtml = p.relator
-          ? '<span class="rel-name">' + p.relator + '</span>'
-          : '<span style="color:#475569">—</span>';
-
-        rows += '<tr class="' + rowCls + '">'
-          + '<td style="color:#475569;text-align:center;padding-left:8px">' + (i+1) + '</td>'
-          + '<td><span class="proc-num">' + p.numero + '</span></td>'
-          + '<td>' + tipoBadge + '</td>'
-          + '<td>' + stBadge + '</td>'
-          + '<td>' + relHtml + '</td>'
-          + '<td>' + matHtml + '</td>'
-          + '<td>' + valHtml + '</td>'
-          + '<td><span class="date-txt">' + (p.data || '—') + '</span></td>'
-          + '</tr>';
-      });
       tbody.innerHTML = rows;
       document.getElementById('proc-section').style.display = 'block';
     }
@@ -1885,14 +1895,24 @@ def dashboard_data(job_id):
         return jsonify({"error": "não encontrado"}), 404
 
     linhas = job.get('linhas', [])
-    total  = len(linhas)
+
+    def _e_2g(l):
+        """Processo de 2º grau = acórdão OU já distribuído no 2g."""
+        tp     = (l.get("TIPO")               or "").strip().upper()
+        dist2g = (l.get("DISTRIBUÍDO 2º GRAU") or "").strip()
+        return tp in ("ACÓRDÃO", "ACORDAO") or dist2g == "SIM"
+
+    _tipos_ignorar = {"ERRO", "NÃO LOCALIZADO", "NAO LOCALIZADO"}
+    linhas_2g = [l for l in linhas if _e_2g(l)]
+    linhas_1g = [l for l in linhas if not _e_2g(l)
+                 and (l.get("TIPO") or "").strip().upper() not in _tipos_ignorar]
 
     status_counts  = Counter()
     materia_counts = Counter()
     tipo_counts    = Counter()
-    relator_counts = {}   # relator → {status: count}
+    relator_counts = {}
 
-    for l in linhas:
+    for l in linhas_2g:
         st = (l.get("STATUS DA DECISÃO") or "").strip() or "SEM DECISÃO"
         mt = (l.get("MATÉRIA")           or "").strip()
         tp = (l.get("TIPO")              or "").strip() or "DESCONHECIDO"
@@ -1907,25 +1927,32 @@ def dashboard_data(job_id):
                 relator_counts[rl] = {}
             relator_counts[rl][st] = relator_counts[rl].get(st, 0) + 1
 
-    processos = []
-    for l in linhas:
-        tp      = (l.get("TIPO")               or "").strip()
-        dist2g  = (l.get("DISTRIBUÍDO 2º GRAU") or "").strip()
-        tem_ac  = (l.get("TEM ACÓRDÃO 2º GRAU") or "").strip()
-        processos.append({
-            "numero":   (l.get("NÚMERO DO PROCESSO") or "").strip(),
-            "tipo":     tp,
-            "status":   (l.get("STATUS DA DECISÃO")  or "").strip(),
-            "relator":  (l.get("RELATOR/JUIZ")        or "").strip(),
-            "materia":  (l.get("MATÉRIA")             or "").strip(),
-            "data":     (l.get("DATA DA DECISÃO")     or "").strip(),
-            "dist2g":   dist2g,
-            "tem_ac":   tem_ac,
-            "valor":    (l.get("VALOR DA CONDENAÇÃO") or "").strip(),
-        })
+    def _proc_dict(l, grau_label):
+        tp     = (l.get("TIPO")               or "").strip()
+        dist2g = (l.get("DISTRIBUÍDO 2º GRAU") or "").strip()
+        tem_ac = (l.get("TEM ACÓRDÃO 2º GRAU") or "").strip()
+        return {
+            "numero":  (l.get("NÚMERO DO PROCESSO") or "").strip(),
+            "tipo":    tp,
+            "status":  (l.get("STATUS DA DECISÃO")  or "").strip(),
+            "relator": (l.get("RELATOR/JUIZ")        or "").strip(),
+            "materia": (l.get("MATÉRIA")             or "").strip(),
+            "data":    (l.get("DATA DA DECISÃO")     or "").strip(),
+            "dist2g":  dist2g,
+            "tem_ac":  tem_ac,
+            "valor":   (l.get("VALOR DA CONDENAÇÃO") or "").strip(),
+            "grau":    grau_label,
+        }
+
+    processos = (
+        [_proc_dict(l, "2g") for l in linhas_2g] +
+        [_proc_dict(l, "1g") for l in linhas_1g]
+    )
 
     return jsonify({
-        "total":          total,
+        "total":          len(linhas),
+        "total_2g":       len(linhas_2g),
+        "total_1g":       len(linhas_1g),
         "status_counts":  dict(status_counts.most_common()),
         "materia_counts": dict(materia_counts.most_common()),
         "tipo_counts":    dict(tipo_counts.most_common()),
