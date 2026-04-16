@@ -114,27 +114,40 @@ def _buscar_via_api(params, usar_proxy=False):
     Faz a busca paginada via API REST.
     Retorna (lista, bloqueado):
       - lista: itens encontrados (pode ser [] se bloqueado)
-      - bloqueado: True se recebeu resposta de bloqueio
+      - bloqueado: True se a primeira página foi bloqueada (sem nenhum resultado)
+
+    Timeouts em páginas intermediárias são retentados até 2x com backoff (1s, 3s).
+    Se o timeout persistir após retentativas mas já temos resultados, retornamos
+    o que coletamos (bloqueado=False) em vez de descartar tudo e ir ao fallback.
     """
     url = DJEN_PROXY_URL if usar_proxy else DJEN_API_URL
     lista = []
     pagina = 1
     while True:
         params['pagina'] = pagina
-        try:
-            r = requests.get(
-                url, params=params,
-                headers=_HEADERS, timeout=30,
-            )
-        except requests.exceptions.ConnectionError:
-            return lista, True
-        except requests.exceptions.Timeout:
-            return lista, True
-        except Exception:
-            return lista, True
+
+        # Retry por página: até 3 tentativas com backoff antes de desistir
+        r = None
+        for tentativa in range(3):
+            try:
+                r = requests.get(url, params=params, headers=_HEADERS, timeout=30)
+                break  # sucesso — sai do loop de retry
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                    Exception):
+                if tentativa < 2:
+                    time.sleep(2 ** (tentativa + 1))  # 2s, 4s
+                else:
+                    # 3ª falha: se não temos nada → bloqueado; se já coletamos → encerra
+                    return lista, len(lista) == 0
+
+        if r is None:
+            return lista, len(lista) == 0
 
         if r.status_code in _CODIGOS_BLOQUEIO:
-            return lista, True
+            # Bloqueio na 1ª página → sem resultados, vale tentar fallback
+            # Bloqueio em página intermediária → retorna o que foi coletado
+            return lista, len(lista) == 0
         if r.status_code != 200:
             break
 
@@ -151,7 +164,7 @@ def _buscar_via_api(params, usar_proxy=False):
             lista.append(_normalizar_item(i))
 
         pagina += 1
-        time.sleep(0.3)
+        time.sleep(1.0)  # 1s entre páginas para não sobrecarregar a API
 
     return lista, False
 
@@ -209,7 +222,7 @@ def _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id):
                 f"&dataDisponibilizacaoInicio={data_ini}"
                 f"&dataDisponibilizacaoFim={data_fim}"
                 f"&siglaTribunal=TJAM"
-                f"&itensPorPagina=100"
+                f"&itensPorPagina=20"
                 f"&meio=D"
                 f"&pagina={pagina}"
             )
@@ -398,7 +411,7 @@ def _buscar_orgao(nome_adv, data_ini, data_fim, orgao_id):
         'dataDisponibilizacaoInicio': data_ini,
         'dataDisponibilizacaoFim':    data_fim,
         'siglaTribunal':              'TJAM',
-        'itensPorPagina':             100,
+        'itensPorPagina':             20,   # 100 causa timeout na API
         'meio':                       'D',
     }
     if orgao_id:
