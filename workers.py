@@ -588,7 +588,7 @@ def processar_job_xlsx(job_id, jobs, caminho_xlsx, cpf, senha, api_key, batch_si
 def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                        relator_filtro, cpf, senha, api_key, batch_size,
                        filtro_texto='', modelo_ia=None, nome_advogado=None, usar_ia=True,
-                       advogado_key=None):
+                       advogado_key=None, filtro_tipo_doc=False):
     job = jobs[job_id]
     job['advogado_key'] = advogado_key or 'luis_albert'
 
@@ -622,6 +622,17 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             if not processos_djen:
                 job['status'] = 'error'
                 job['error']  = f"Nenhuma publicação contém a palavra-chave '{filtro_texto}'."
+                return
+
+        # Filtro por tipo de documento (client-side — a API ignora o parâmetro server-side)
+        if filtro_tipo_doc:
+            antes = len(processos_djen)
+            processos_djen = [p for p in processos_djen
+                              if 'JUNTADA' in p.get('tipo_doc', '').upper()]
+            log(f"🔍 Filtro JUNTADA DE ACÓRDÃO: {len(processos_djen)}/{antes} publicações mantidas.")
+            if not processos_djen:
+                job['status'] = 'error'
+                job['error']  = "Nenhuma publicação do tipo JUNTADA DE ACÓRDÃO encontrada no período."
                 return
 
         numeros = [p['PROCESSO'] for p in processos_djen]

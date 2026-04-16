@@ -292,6 +292,7 @@ def _normalizar_item(i):
         'turma_djen': i.get('nomeOrgao', '').upper(),
         'data_pub':   data_fmt,
         'texto':      texto_pub,
+        'tipo_doc':   i.get('tipoDocumento', ''),
     }
 
 

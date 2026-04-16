@@ -192,6 +192,10 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
         <label>Filtro por palavra-chave (opcional)</label>
         <input type="text" id="djen-filtro" placeholder="Ex: provido">
       </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="djen-filtro-tipo" style="width:16px;height:16px;cursor:pointer">
+        <label for="djen-filtro-tipo" style="margin:0;cursor:pointer;font-size:13px">Apenas <strong>JUNTADA DE ACÓRDÃO</strong></label>
+      </div>
       <div class="err-msg" id="djen-err"></div>
       <button class="btn-run" onclick="iniciarDjen()">▶ Iniciar análise DJEN</button>
     </div>
@@ -366,7 +370,8 @@ async function iniciarDjen() {
   const nome   = document.getElementById('djen-nome').value.trim();
   const ini    = document.getElementById('djen-ini').value;
   const fim    = document.getElementById('djen-fim').value;
-  const filtro = document.getElementById('djen-filtro').value.trim();
+  const filtro     = document.getElementById('djen-filtro').value.trim();
+  const filtroTipo = document.getElementById('djen-filtro-tipo').checked;
   const batch  = 0;
   err.style.display = 'none';
   if (!nome) { mostrarErr(err, 'Informe o nome do advogado.'); return; }
@@ -376,7 +381,7 @@ async function iniciarDjen() {
   btn.disabled = true; btn.textContent = '⏳ Iniciando…';
   try {
     const turmas = orgaosSelecionados.size > 0 ? [...orgaosSelecionados].join(',') : '0';
-    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, batch, turma: turmas });
+    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, filtro_tipo_doc: filtroTipo, batch, turma: turmas });
     const json = await res.json();
     if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }, 2000); }
     else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }

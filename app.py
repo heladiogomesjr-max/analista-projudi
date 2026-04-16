@@ -1703,9 +1703,10 @@ def iniciar_djen():
     nome_advogado = _carregar_config().get("nome_advogado", "")
     data_ini      = request.form.get("data_ini", "").strip()
     data_fim      = request.form.get("data_fim", "").strip()
-    turma         = request.form.get("turma", "0").strip()
-    relator       = request.form.get("relator_filtro", "").strip()
-    filtro_texto  = request.form.get("filtro_texto", "").strip()
+    turma            = request.form.get("turma", "0").strip()
+    relator          = request.form.get("relator_filtro", "").strip()
+    filtro_texto     = request.form.get("filtro_texto", "").strip()
+    filtro_tipo_doc  = request.form.get("filtro_tipo_doc") == "1"
     batch = 0
 
     global _job_ativo
@@ -1723,7 +1724,7 @@ def iniciar_djen():
         args=(job_id, jobs, nome_adv, data_ini, data_fim,
               turma, relator, cpf, senha, api_key, batch,
               filtro_texto, modelo_ia, nome_advogado, usar_ia),
-        kwargs={"advogado_key": _get_advogado_key(cpf)},
+        kwargs={"advogado_key": _get_advogado_key(cpf), "filtro_tipo_doc": filtro_tipo_doc},
         daemon=True,
     ).start()
     return redirect(url_for('status_page', job_id=job_id))
@@ -2113,10 +2114,11 @@ def api_iniciar_djen():
     nome_adv      = str(data.get('nome_adv',     '')).strip()
     data_ini      = str(data.get('data_ini',     '')).strip()
     data_fim      = str(data.get('data_fim',     '')).strip()
-    turma         = str(data.get('turma',       '0')).strip()
-    relator       = str(data.get('relator',      '')).strip()
-    filtro_texto  = str(data.get('filtro_texto', '')).strip()
-    usar_ia       = bool(data.get('usar_ia',     True))
+    turma           = str(data.get('turma',           '0')).strip()
+    relator         = str(data.get('relator',          '')).strip()
+    filtro_texto    = str(data.get('filtro_texto',     '')).strip()
+    filtro_tipo_doc = bool(data.get('filtro_tipo_doc', False))
+    usar_ia         = bool(data.get('usar_ia',         True))
     modelo_ia     = str(data.get('modelo_ia',    ia_mod.MODELO_PADRAO)).strip() or ia_mod.MODELO_PADRAO
     nome_advogado = _carregar_config().get('nome_advogado', '')
     batch = 0
@@ -2140,7 +2142,7 @@ def api_iniciar_djen():
         args=(job_id, jobs, nome_adv, data_ini, data_fim,
               turma, relator, cpf, senha, api_key, batch,
               filtro_texto, modelo_ia, nome_advogado, usar_ia),
-        kwargs={'advogado_key': _get_advogado_key(cpf)},
+        kwargs={'advogado_key': _get_advogado_key(cpf), 'filtro_tipo_doc': filtro_tipo_doc},
         daemon=True,
     ).start()
     return jsonify({'ok': True, 'job_id': job_id})
