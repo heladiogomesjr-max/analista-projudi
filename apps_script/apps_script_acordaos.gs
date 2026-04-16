@@ -45,15 +45,14 @@ const STATUS_FORMATO = {
 // Abas ignoradas na leitura do dashboard
 const ABAS_SISTEMA = ['_config', '_log', 'Config', 'Log'];
 
-// Retorna true se a aba é de Turma Recursal ou Câmara (2º grau)
-// Abas de Varas (1º grau) são excluídas automaticamente
+// Retorna true se a aba é de Turma Recursal ou Câmara (2º grau).
+// APENAS "TURMA" e "CAMARA" identificam 2º grau com segurança.
+// "CIVEL" foi removido: "Vara Cível" também contém essa palavra e é 1º grau.
 function _ehOrgao2g(nome) {
   var n = nome.toUpperCase()
-              .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove acentos para comparar
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove acentos
   return n.indexOf('TURMA')  !== -1
-      || n.indexOf('CAMARA') !== -1
-      || n.indexOf('CIVEL')  !== -1
-      || n.indexOf('CRIMINAL') !== -1;
+      || n.indexOf('CAMARA') !== -1;
 }
 
 
