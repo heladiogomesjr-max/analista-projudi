@@ -284,22 +284,13 @@ def _normalizar_item(i):
     data_fmt = (
         f"{data[8:10]}/{data[5:7]}/{data[0:4]}" if len(data) == 10 else data
     )
-    texto_pub = limpar_html(
-        i.get('texto', '') or i.get('conteudo', '') or
-        i.get('textoPublicacao', '') or ''
-    )
-    # A API retorna campos em camelCase e snake_case dependendo da versão/endpoint.
-    # Lemos ambos com fallback para garantir compatibilidade.
-    nome_orgao = i.get('nomeOrgao') or i.get('orgao') or ''
-    orgao_id   = i.get('idOrgao')   or i.get('orgao')          # pode ser int ou str
-    tipo_doc   = i.get('tipoDocumento') or i.get('tipo_documento') or ''
+    texto_pub = limpar_html(i.get('texto', '') or '')
     return {
         'PROCESSO':   num_fmt,
-        'turma_djen': str(nome_orgao).upper(),
-        'orgao_id':   orgao_id,
+        'turma_djen': str(i.get('orgao', '')).upper(),
         'data_pub':   data_fmt,
         'texto':      texto_pub,
-        'tipo_doc':   tipo_doc,
+        'tipo_doc':   str(i.get('tipo_documento', '')).upper(),
     }
 
 

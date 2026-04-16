@@ -620,28 +620,30 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         }
 
         if filtro_tipo_doc:
-            # Publicações de acórdão são indexadas sob orgaoId diferente dos órgãos selecionados.
-            # Buscar sem orgaoId (global) e filtrar turma + tipo client-side evita o problema de
-            # deduplicação onde distribuições de processo bloqueiam os acórdãos do mesmo processo.
             log(f"   ℹ️  Modo acórdão: busca global + filtro de turma e tipo client-side")
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
 
-            # Filtra pela turma selecionada (se não for 'todas')
-            # Usa idOrgao (confiável) em vez de nomeOrgao (sujeito a variações de texto)
             if turma and turma != '0':
-                orgao_ids_sel = set(djen._resolver_orgaos(turma))
-                if orgao_ids_sel:
-                    # Diagnóstico: top orgao_id presentes nos resultados
+                orgao_ids_list = djen._resolver_orgaos(turma)
+                if orgao_ids_list:
+                    # A API retorna 'orgao' como string (nome do órgão) — comparar por nome
+                    nomes_alvo = {
+                        djen._NOMES_ORGAOS.get(oid, '').upper()
+                        for oid in orgao_ids_list
+                    }
+                    nomes_alvo.discard('')
+
+                    # Diagnóstico: top turma_djen presentes nos resultados globais
                     from collections import Counter as _C
-                    dist_oid = _C((p.get('orgao_id'), p.get('turma_djen','')[:40])
-                                  for p in processos_djen).most_common(10)
-                    log(f"   🔎 orgao_ids buscados: {sorted(orgao_ids_sel)}")
-                    for (oid, nome), n in dist_oid:
-                        marca = ' ✓' if oid in orgao_ids_sel else ''
-                        log(f"   🔎  id={oid} ({nome}): {n}x{marca}")
+                    dist = _C(p.get('turma_djen', '') for p in processos_djen).most_common(10)
+                    log(f"   🔎 Nomes esperados: {sorted(nomes_alvo)}")
+                    for nome, n in dist:
+                        marca = ' ✓' if nome in nomes_alvo else ''
+                        log(f"   🔎  '{nome}': {n}x{marca}")
+
                     antes = len(processos_djen)
                     processos_djen = [p for p in processos_djen
-                                      if p.get('orgao_id') in orgao_ids_sel]
+                                      if p.get('turma_djen', '') in nomes_alvo]
                     log(f"   🔍 Filtro turma: {len(processos_djen)}/{antes} publicações mantidas.")
         else:
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
