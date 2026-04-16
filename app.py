@@ -603,7 +603,7 @@ textarea:focus{border-color:#1976d2}
 
 /* STATUS */
 #logbox{background:#1e1e1e;color:#d4edda;font-family:monospace;font-size:.82rem;
-        border-radius:8px;padding:16px;height:380px;overflow-y:auto;white-space:pre-wrap}
+        border-radius:8px;padding:16px;min-height:500px;max-height:70vh;overflow-y:auto;white-space:pre-wrap}
 .prog-wrap{background:#e5e7eb;border-radius:8px;height:10px;margin-bottom:8px;overflow:hidden}
 .prog{height:100%;border-radius:8px;background:#1565c0;width:5%;transition:width .4s;
       background-image:linear-gradient(45deg,rgba(255,255,255,.15)25%,transparent 25%,
@@ -1087,9 +1087,10 @@ function cor(m) {
 
 function poll() {
   fetch('/progresso/' + JID).then(r => r.json()).then(function(d) {
-    d.logs.slice(idx).forEach(function(m) { lb.innerHTML += cor(m) + '\\n'; });
+    var atBottom = lb.scrollHeight - lb.scrollTop - lb.clientHeight < 40;
+    d.logs.slice(idx).forEach(function(m) { lb.insertAdjacentHTML('beforeend', cor(m) + '\\n'); });
     idx = d.logs.length;
-    lb.scrollTop = lb.scrollHeight;
+    if (atBottom) lb.scrollTop = lb.scrollHeight;
 
     var pct = d.pct || 5;
     document.getElementById('prog').style.width = pct + '%';
