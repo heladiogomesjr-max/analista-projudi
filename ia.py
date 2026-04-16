@@ -154,6 +154,31 @@ Você analisa processos em que um advogado defende consumidores contra bancos/em
 
   ⚠️ Se ACÓRDÃO DE MÉRITO e SENTENÇA DE MÉRITO estiverem "(não extraído)", DECISAO = "SEM PARECER CONCLUSIVO".
 
+═══ PRÉ-ANÁLISE OBRIGATÓRIA — construa o contexto antes de classificar ═══
+Antes de preencher qualquer campo, leia TODOS os documentos e responda internamente:
+
+  PASSO A — CASO (petição inicial): Qual produto/serviço é contestado?
+             O que o consumidor pede (danos morais, materiais, inexigibilidade)?
+  PASSO B — PARTES: Quem é o consumidor (autor)? Quem é o réu (banco/empresa)?
+             No recurso: quem recorreu — o consumidor ou o banco?
+  PASSO C — SENTENÇA DE 1º GRAU: O juiz deu razão a quem?
+             Procedente, improcedente, parcialmente procedente?
+  PASSO D — VERIFICAÇÃO DE ACORDO (obrigatório antes de qualquer outra classificação):
+             Varre TODOS os documentos — petição, sentença, acórdão, embargos.
+             Há QUALQUER menção a: acordo, transação, composição amigável, homologação,
+             "partes celebraram acordo", "transação homologada", "desistência por acordo"?
+             ➜ Se SIM em qualquer documento → DECISAO = ACORDO HOMOLOGADO. Encerre aqui.
+             ➜ Somente se NÃO houver nenhum sinal de acordo, prossiga para os próximos passos.
+  PASSO E — DISPOSITIVO DO ACÓRDÃO: Qual é a frase exata do dispositivo?
+             (começa com "ACORDAM", "Ante o exposto", "Por tais fundamentos")
+             Este é o único elemento que determina o resultado — leia-o antes do voto.
+  PASSO F — CONSISTÊNCIA DO VOTO: O que o relator descreve bate com a petição do PASSO A?
+             Se o voto menciona produto ou fatos ausentes na petição
+             (ex: cita "consórcio" mas a petição é sobre conta corrente),
+             esse trecho é contaminação de outro processo — desconsidere-o.
+  PASSO G — RESULTADO FINAL: Com base no dispositivo (PASSO E) e nas partes (PASSO B),
+             quem ganhou? Aplique sempre a perspectiva do consumidor.
+
 ═══ DISPOSITIVO — FONTE SOBERANA DO RESULTADO ═══
 O dispositivo final do acórdão (frases que começam com "ACORDAM", "Ante o exposto", "Por tais
 fundamentos", "Diante do exposto") é a ÚNICA fonte para determinar DECISAO.
@@ -184,9 +209,14 @@ PASSO 2 — Localize o dispositivo e identifique o resultado:
   "NEGAR PROVIMENTO" / "DESPROVIDO" / "NÃO PROVIDO" → RECORRENTE perdeu
   ⚠️ "RECURSO DESPROVIDO" com banco como RECORRENTE = banco perdeu = FAVORÁVEL ao consumidor
   "ANULAR/CASSAR SENTENÇA" → SENTENÇA ANULADA
-  "EXTINTO" sem mérito (art. 485 CPC) → EXTINTO SEM MÉRITO — SOMENTE quando não há resolução de mérito: ilegitimidade, falta de interesse, coisa julgada, desistência, abandono.
-  "homologo o acordo" / "acordo homologado" / "transação homologada" / "partes celebraram acordo" → ACORDO HOMOLOGADO
-  ⚠️ ATENÇÃO CRÍTICA: mesmo que o texto use a palavra "extinto" ou "extinção", se houver homologação de acordo entre as partes, use SEMPRE ACORDO HOMOLOGADO. Homologação de acordo é extinção COM resolução do mérito (art. 487, III, b CPC) — não é EXTINTO SEM MÉRITO.
+  "homologo o acordo" / "acordo homologado" / "transação homologada" / "partes celebraram acordo"
+    / "composição amigável" / "desistência com acordo" → ACORDO HOMOLOGADO
+  ⚠️ EXTINTO SEM MÉRITO é a última opção — aplique SOMENTE após confirmar duas condições:
+     (1) Não há NENHUM sinal de acordo em nenhum dos documentos (verificou no PASSO D?)
+     (2) A extinção é por motivo processual sem resolução de mérito: ilegitimidade,
+         falta de interesse, coisa julgada, desistência SEM acordo, abandono (art. 485 CPC)
+     A palavra "extinto" ou "extinção" sozinha NÃO determina EXTINTO SEM MÉRITO.
+     Acordo extingue com resolução de mérito (art. 487, III, b CPC) → ACORDO HOMOLOGADO.
 PASSO 3 — Combine (DECISAO reflete SEMPRE a perspectiva do consumidor):
   consumidor é RECORRENTE + DAR PROVIMENTO    → FAVORÁVEL
   consumidor é RECORRENTE + NEGAR PROVIMENTO  → DESFAVORÁVEL
@@ -349,7 +379,7 @@ Retorne SOMENTE este JSON (sem markdown).
 IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógica do que você escreveu no RACIOCINIO.
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
-  "RACIOCINIO": "4 frases obrigatórias: (0) Cite a frase exata do DISPOSITIVO que determina o resultado (ex: 'O dispositivo diz: ACORDAM negar provimento ao recurso do banco'). (1) Quem é o recorrente e qual foi o resultado — se FAVORÁVEL, descreva QUAL benefício concreto o consumidor obteve (ex: danos morais de R$ X, inexigibilidade de débito de R$ Y, suspensão de desconto indevido); se DESFAVORÁVEL, descreva o que foi negado. (2) Houve embargos de declaração? Foram acolhidos? O que mudou na decisão ou nos valores? (3) Discriminação dos valores condenados: danos morais + materiais + repetição de indébito + outros. Se FAVORÁVEL sem condenação monetária, descreva a tutela obtida (inexigibilidade, obrigação de fazer etc.). NUNCA escreva apenas 'recurso foi provido' sem explicar o que isso significa para o consumidor.",
+  "RACIOCINIO": "Análise comparativa obrigatória em 4 partes: (0) CONTEXTO DO PROCESSO — o que a petição inicial contesta (produto/serviço), o que o consumidor pede, e o que a sentença de 1º grau decidiu. (1) DISPOSITIVO DO ACÓRDÃO — cite a frase exata do dispositivo (ex: 'ACORDAM negar provimento ao recurso interposto pelo banco'). Quem recorreu? O resultado favorece o consumidor ou o banco? (2) ACORDO OU EXTINÇÃO — houve menção a acordo, transação ou homologação em qualquer documento? Se sim, descreva. Se o processo foi extinto, qual foi o motivo exato (processual sem mérito, ou extinção por acordo)? (3) RESULTADO CONCRETO — se FAVORÁVEL: qual benefício o consumidor obteve (danos morais R$ X, danos materiais R$ Y, inexigibilidade de débito, suspensão de desconto)? Se DESFAVORÁVEL: o que foi negado? Discrimine valores e tutelas. NUNCA escreva apenas 'recurso provido' sem explicar o que isso significa para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "MATERIA": "SIGLA_DA_MATERIA",
   "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor material acordado se informado.",
