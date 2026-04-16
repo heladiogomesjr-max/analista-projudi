@@ -649,18 +649,11 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                 log(f"   ⚠️  [DIAG] NENHUM acórdão encontrado nos {len(processos_djen)} resultados.")
 
             if turma and turma != '0':
-                orgao_ids_list = djen._resolver_orgaos(turma)
-                if orgao_ids_list:
-                    nomes_alvo = {
-                        djen._NOMES_ORGAOS.get(oid, '').upper()
-                        for oid in orgao_ids_list
-                    }
-                    nomes_alvo.discard('')
-                    log(f"   🔎 [DIAG] Nomes esperados para a turma: {sorted(nomes_alvo)}")
-                    antes = len(processos_djen)
-                    processos_djen = [p for p in processos_djen
-                                      if p.get('turma_djen', '') in nomes_alvo]
-                    log(f"   🔍 Filtro turma: {len(processos_djen)}/{antes} publicações mantidas.")
+                # No TJAM, publicações "COM JULGAMENTO DE MÉRITO" são indexadas pelo
+                # órgão de 1º grau que originou o processo, não pela Turma Recursal
+                # que julgou o recurso. Filtrar por turma eliminaria esses acórdãos.
+                log(f"   ℹ️  Filtro de turma ignorado em modo acórdão — no TJAM/DJEN, "
+                    f"acórdãos de Turmas Recursais são publicados sob o órgão de origem (1º grau).")
         else:
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
 
