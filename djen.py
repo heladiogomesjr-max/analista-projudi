@@ -228,7 +228,7 @@ def _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id):
                 f"&pagina={pagina}"
             )
             if orgao_id:
-                params_str += f"&orgao={orgao_id}"
+                params_str += f"&orgaoId={orgao_id}"
 
             url_fetch = f"{api_url}?{params_str}"
             try:
@@ -464,16 +464,22 @@ def _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id):
         'meio':                       'D',
     }
     if orgao_id:
-        params['orgao'] = orgao_id   # parâmetro correto conforme schema da API
+        params['orgaoId'] = orgao_id  # parâmetro que realmente filtra na API
 
     # 1ª tentativa: API REST direta
     lista, bloqueado = _buscar_via_api(params)
     if not bloqueado:
+        # Se orgaoId foi especificado mas retornou vazio, o servidor (Oracle/proxy)
+        # pode não suportar orgaoId — força Playwright que usa browser real
+        if orgao_id and not lista:
+            return _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id)
         return lista
 
     # 2ª tentativa: proxy brasileiro
     lista, bloqueado = _buscar_via_api(params, usar_proxy=True)
     if not bloqueado:
+        if orgao_id and not lista:
+            return _buscar_via_playwright(nome_adv, data_ini, data_fim, orgao_id)
         return lista
 
     # 3ª tentativa: Playwright

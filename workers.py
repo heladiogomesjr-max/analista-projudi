@@ -611,22 +611,16 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         filtro_rel = f" | Relator: {relator_filtro}" if relator_filtro else ""
         log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
 
-        # Tipos de acórdão confirmados na API do TJAM:
-        #   COM JULGAMENTO DE MÉRITO / SEM JULGAMENTO DE MÉRITO — mais comuns no TJAM
-        #   JUNTADA DE ACÓRDÃO / ACÓRDÃO ... — nomenclatura de outros tribunais PJe
+        # Tipos de decisão de mérito confirmados no DJEN do TJAM:
+        #   DECISÃO DO RELATOR            — Turmas Recursais (formato atual no TJAM)
+        #   COM/SEM JULGAMENTO DE MÉRITO  — decisões de 1º grau e turmas (formato PJe legado)
+        #   JUNTADA / ACÓRDÃO             — outros tribunais
         _TIPOS_ACORDAO = {
             'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
-            'ACÓRDÃO', 'ACORDAO',
+            'ACÓRDÃO', 'ACORDAO', 'DECISÃO DO RELATOR',
         }
 
-        if filtro_tipo_doc:
-            log(f"   ℹ️  Modo acórdão: busca global + filtro por tipo de documento")
-            processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
-            # Filtro de turma não se aplica em modo acórdão: no TJAM/DJEN, acórdãos
-            # de Turmas Recursais são publicados sob o órgão de 1º grau (vara/juizado
-            # que originou o processo), não sob o órgão da turma que decidiu o recurso.
-        else:
-            processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
+        processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
 
         if not processos_djen:
             job['status'] = 'error'
@@ -647,7 +641,7 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         if filtro_tipo_doc:
             antes = len(processos_djen)
             processos_djen = [p for p in processos_djen
-                              if any(kw in p.get('tipo_doc', '').upper()
+                              if any(kw in p.get('tipo_doc', '')
                                      for kw in _TIPOS_ACORDAO)]
             log(f"🔍 Filtro acórdão: {len(processos_djen)}/{antes} publicações mantidas.")
             if not processos_djen:
