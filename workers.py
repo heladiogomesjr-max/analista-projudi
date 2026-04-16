@@ -627,14 +627,13 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, '0', log=log)
 
             # Filtra pela turma selecionada (se não for 'todas')
+            # Usa idOrgao (confiável) em vez de nomeOrgao (sujeito a variações de texto)
             if turma and turma != '0':
-                orgao_ids_sel = djen._resolver_orgaos(turma)
-                nomes_turmas  = {djen._NOMES_ORGAOS.get(oid, '').upper()
-                                 for oid in orgao_ids_sel} - {''}
-                if nomes_turmas:
+                orgao_ids_sel = set(djen._resolver_orgaos(turma))
+                if orgao_ids_sel:
                     antes = len(processos_djen)
                     processos_djen = [p for p in processos_djen
-                                      if p.get('turma_djen', '') in nomes_turmas]
+                                      if p.get('orgao_id') in orgao_ids_sel]
                     log(f"   🔍 Filtro turma: {len(processos_djen)}/{antes} publicações mantidas.")
         else:
             processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)

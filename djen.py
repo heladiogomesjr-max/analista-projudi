@@ -291,6 +291,7 @@ def _normalizar_item(i):
     return {
         'PROCESSO':   num_fmt,
         'turma_djen': i.get('nomeOrgao', '').upper(),
+        'orgao_id':   i.get('idOrgao'),
         'data_pub':   data_fmt,
         'texto':      texto_pub,
         'tipo_doc':   i.get('tipoDocumento', ''),
