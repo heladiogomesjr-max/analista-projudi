@@ -613,13 +613,38 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
 
         # Tipos de decisão de mérito confirmados no DJEN do TJAM:
-        #   DECISÃO DO RELATOR            — Turmas Recursais (formato atual no TJAM)
-        #   COM/SEM JULGAMENTO DE MÉRITO  — decisões de 1º grau e turmas (formato PJe legado)
+        #   DECISÃO DO RELATOR            — Turmas Recursais (formato legado)
+        #   COM/SEM JULGAMENTO DE MÉRITO  — decisões PJe legado
         #   JUNTADA / ACÓRDÃO             — outros tribunais
+        # A partir de 2026 o TJAM envia o acórdão embutido numa INTIMAÇÃO —
+        # por isso também inspecionamos o corpo do texto.
         _TIPOS_ACORDAO = {
             'JUNTADA', 'COM JULGAMENTO', 'SEM JULGAMENTO',
             'ACÓRDÃO', 'ACORDAO', 'DECISÃO DO RELATOR',
         }
+        # Palavras que, no corpo da publicação, indicam decisão de mérito
+        # (usadas quando tipoDocumento == 'INTIMAÇÃO' a partir de 2026)
+        _KW_TEXTO_ACORDAO = (
+            'ACORDAM',              # início canônico do dispositivo de todo acórdão
+            'RECURSO CONHECIDO',    # típico em Turmas Recursais
+            'NEGADO PROVIMENTO',
+            'DADO PROVIMENTO',
+            'RECURSO PROVIDO',
+            'RECURSO IMPROVIDO',
+            'RECURSO DESPROVIDO',
+            'SENTENÇA ANULADA',
+            'ACORDO HOMOLOGADO',
+            'EXTINTO SEM JULGAMENTO',
+        )
+
+        def _e_acordao_pub(p):
+            """True se a publicação contém uma decisão de mérito."""
+            td = p.get('tipo_doc', '')
+            if any(kw in td for kw in _TIPOS_ACORDAO):
+                return True
+            # Intimação com acórdão embutido (mudança API TJAM 2026)
+            texto_up = p.get('texto', '').upper()
+            return any(kw in texto_up for kw in _KW_TEXTO_ACORDAO)
 
         processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
 
@@ -641,16 +666,20 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
 
         if filtro_tipo_doc:
             antes = len(processos_djen)
-            # Diagnóstico: mostra todos os tipo_doc únicos antes de filtrar
             tipos_vistos = sorted(set(p.get('tipo_doc', '') for p in processos_djen))
             log(f"[DIAG] tipo_doc únicos ({len(tipos_vistos)}): {tipos_vistos}")
-            processos_djen = [p for p in processos_djen
-                              if any(kw in p.get('tipo_doc', '')
-                                     for kw in _TIPOS_ACORDAO)]
+
+            # Amostra de texto das INTIMAÇÃO para diagnóstico (3 primeiras)
+            amostras = [p for p in processos_djen if 'INTIMA' in p.get('tipo_doc', '')][:3]
+            for ap in amostras:
+                trecho = ap.get('texto', '')[:120].replace('\n', ' ')
+                log(f"[DIAG] INTIMAÇÃO texto: {trecho!r}")
+
+            processos_djen = [p for p in processos_djen if _e_acordao_pub(p)]
             log(f"🔍 Filtro acórdão: {len(processos_djen)}/{antes} publicações mantidas.")
             if not processos_djen:
                 job['status'] = 'error'
-                job['error']  = "Nenhuma publicação de acórdão encontrada no período."
+                job['error']  = "Nenhuma publicação de acórdão encontrada no período. Tente desativar o filtro 'apenas acórdãos' para ver todas as publicações."
                 return
 
         numeros = [p['PROCESSO'] for p in processos_djen]
