@@ -1409,6 +1409,22 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#0f172a;color:#e2
     </div>
   </div>
 
+  <!-- Filtro de período -->
+  <div id="filtro-bar" style="display:none;background:#1e293b;border-radius:12px;padding:14px 18px;
+       margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:.82rem;color:#94a3b8;font-weight:600;white-space:nowrap">📅 Período:</span>
+    <input type="date" id="f-ini" style="background:#0f172a;color:#e2e8f0;border:1px solid #334155;
+           border-radius:7px;padding:6px 10px;font-size:.83rem;cursor:pointer"
+           oninput="aplicarFiltro()">
+    <span style="color:#475569;font-size:.85rem">até</span>
+    <input type="date" id="f-fim" style="background:#0f172a;color:#e2e8f0;border:1px solid #334155;
+           border-radius:7px;padding:6px 10px;font-size:.83rem;cursor:pointer"
+           oninput="aplicarFiltro()">
+    <button onclick="limparFiltro()" style="background:#334155;color:#94a3b8;border:none;
+            border-radius:7px;padding:6px 12px;font-size:.82rem;cursor:pointer">✕ Limpar</button>
+    <span id="f-contagem" style="font-size:.8rem;color:#64748b;margin-left:auto"></span>
+  </div>
+
   <!-- Cards -->
   <div class="cards" id="cards-wrap"></div>
 
@@ -1469,6 +1485,173 @@ const COR_FAV  = '#22c55e';
 const COR_DESF = '#ef4444';
 const COR_SEM  = '#f59e0b';
 const COR_NL   = '#64748b';
+
+// ── Filtro de data e re-renderização ─────────────────────────
+var _chartStatus=null,_chartTipo=null,_chartMateria=null,_chartRelator=null,_allData=null;
+
+function _parseData(str){
+  if(!str||str==='—') return null;
+  var p=str.split('/');
+  if(p.length!==3) return null;
+  return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+}
+
+function aplicarFiltro(){
+  if(!_allData) return;
+  var ini=document.getElementById('f-ini').value;
+  var fim=document.getElementById('f-fim').value;
+  var dIni=ini?new Date(ini):null;
+  var dFim=fim?new Date(fim+'T23:59:59'):null;
+  var procs=(_allData.processos||[]).slice();
+  if(dIni||dFim){
+    procs=procs.filter(function(p){
+      var d=_parseData(p.data);
+      if(!d) return false;
+      if(dIni&&d<dIni) return false;
+      if(dFim&&d>dFim) return false;
+      return true;
+    });
+  }
+  document.getElementById('f-contagem').textContent=(dIni||dFim)?procs.length+' processo(s) no período':'';
+  _renderDashboard(procs);
+}
+
+function limparFiltro(){
+  document.getElementById('f-ini').value='';
+  document.getElementById('f-fim').value='';
+  document.getElementById('f-contagem').textContent='';
+  aplicarFiltro();
+}
+
+function _reconstruirContagens(procs2g){
+  var sc={},mc={},tc={},rc={};
+  procs2g.forEach(function(p){
+    var st=p.status||'',mt=p.materia||'',tp=p.tipo||'',rl=p.relator||'';
+    if(st) sc[st]=(sc[st]||0)+1;
+    if(mt) mc[mt]=(mc[mt]||0)+1;
+    if(tp) tc[tp]=(tc[tp]||0)+1;
+    if(rl&&st){if(!rc[rl])rc[rl]={};rc[rl][st]=(rc[rl][st]||0)+1;}
+  });
+  return{sc:sc,mc:mc,tc:tc,rc:rc};
+}
+
+function _sortCrono(arr){
+  return arr.slice().sort(function(a,b){
+    var da=_parseData(a.data),db=_parseData(b.data);
+    if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1;
+    return da-db;
+  });
+}
+
+function _renderDashboard(procs){
+  var procs2g=_sortCrono(procs.filter(function(p){return p.grau!=='outros';}));
+  var procs1g=_sortCrono(procs.filter(function(p){return p.grau==='outros';}));
+  var t2g=procs2g.length, t1g=procs1g.length;
+  document.getElementById('dash-sub').textContent=
+    t2g+' processo(s) de 2º grau'+(t1g>0?' · '+t1g+' de 1º grau':'');
+
+  var cnt=_reconstruirContagens(procs2g);
+  var fav=cnt.sc['FAVORÁVEL']||0, desf=cnt.sc['DESFAVORÁVEL']||0;
+  var aprov=t2g>0?((fav/t2g)*100).toFixed(1):'0.0';
+  document.getElementById('cards-wrap').innerHTML=[
+    {cls:'total',val:t2g,lbl:'2º Grau — Turmas/Câmaras',sub:'processos analisados'},
+    {cls:'fav',val:fav,lbl:'Favoráveis',sub:'para o consumidor'},
+    {cls:'desf',val:desf,lbl:'Desfavoráveis',sub:'para o consumidor'},
+    {cls:'sem',val:aprov+'%',lbl:'Aproveitamento',sub:'decisões favoráveis'},
+  ].map(function(c){return'<div class="card '+c.cls+'"><div class="card-val">'+c.val+'</div>'
+    +'<div class="card-lbl">'+c.lbl+'</div><div class="card-sub">'+c.sub+'</div></div>';}).join('');
+
+  document.getElementById('charts-wrap').style.display=t2g>0?'grid':'none';
+  if(t2g===0&&t1g===0){document.getElementById('proc-section').style.display='none';return;}
+
+  var statusLabels=Object.keys(cnt.sc),statusData=Object.values(cnt.sc);
+  if(_chartStatus) _chartStatus.destroy();
+  _chartStatus=new Chart(document.getElementById('chart-status'),{
+    type:'doughnut',
+    data:{labels:statusLabels,datasets:[{data:statusData,backgroundColor:statusLabels.map(corStatus),borderColor:'#1e293b',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:12}}},
+      tooltip:{callbacks:{label:function(c){var tot=statusData.reduce(function(a,b){return a+b;},0);
+        return c.label+': '+c.parsed+' ('+(c.parsed/tot*100).toFixed(1)+'%)';}}}}}
+  });
+
+  var tipoLabels=Object.keys(cnt.tc),tipoData=Object.values(cnt.tc);
+  if(_chartTipo) _chartTipo.destroy();
+  _chartTipo=new Chart(document.getElementById('chart-tipo'),{
+    type:'doughnut',
+    data:{labels:tipoLabels,datasets:[{data:tipoData,backgroundColor:['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#64748b'],borderColor:'#1e293b',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:12}}}}}
+  });
+
+  var PALETA=['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#10b981','#f43f5e','#a78bfa','#34d399','#fb923c','#60a5fa','#c084fc','#2dd4bf','#fbbf24','#4ade80','#f472b6'];
+  var matE=Object.entries(cnt.mc).filter(function(e){return e[0];}).sort(function(a,b){return b[1]-a[1];});
+  document.getElementById('wrap-materia').style.height=Math.max(220,matE.length*38)+'px';
+  if(_chartMateria) _chartMateria.destroy();
+  _chartMateria=new Chart(document.getElementById('chart-materia'),{
+    type:'bar',
+    data:{labels:matE.map(function(e){return e[0];}),datasets:[{label:'Processos',data:matE.map(function(e){return e[1];}),
+      backgroundColor:matE.map(function(_,i){return PALETA[i%PALETA.length];}),borderRadius:6}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:function(c){return' '+c.parsed.x+' processo(s)';}}}},
+      scales:{x:{grid:{color:'#1e3a5f'},ticks:{color:'#94a3b8'}},y:{grid:{color:'transparent'},ticks:{color:'#cbd5e1',font:{size:11}}}}}
+  });
+
+  var relE=Object.entries(cnt.rc).filter(function(e){return e[0];})
+    .sort(function(a,b){return Object.values(b[1]).reduce(function(s,v){return s+v;},0)-Object.values(a[1]).reduce(function(s,v){return s+v;},0);});
+  var todosS=[];
+  relE.forEach(function(e){Object.keys(e[1]).forEach(function(s){if(todosS.indexOf(s)===-1)todosS.push(s);});});
+  document.getElementById('wrap-relator').style.height=Math.max(220,relE.length*44)+'px';
+  if(_chartRelator) _chartRelator.destroy();
+  _chartRelator=new Chart(document.getElementById('chart-relator'),{
+    type:'bar',
+    data:{labels:relE.map(function(e){return e[0];}),datasets:todosS.map(function(st){return{
+      label:st,data:relE.map(function(e){return e[1][st]||0;}),backgroundColor:corStatus(st),borderRadius:4};})},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{stacked:true,grid:{color:'#1e3a5f'},ticks:{color:'#94a3b8'}},
+        y:{stacked:true,grid:{color:'transparent'},ticks:{color:'#cbd5e1',font:{size:11}}}}}
+  });
+
+  function _tipoBadge(p){var tp=(p.tipo||'').toUpperCase();
+    if(tp==='ACÓRDÃO'||tp==='ACORDAO') return'<span class="badge badge-acordao">🏛️ ACÓRDÃO</span>';
+    if(tp==='SENTENÇA'||tp==='SENTENCA') return p.dist2g==='SIM'
+      ?'<span class="badge badge-sent-ag">⏳ SENT. (aguard. acórdão)</span>'
+      :'<span class="badge badge-1g">⚖️ SENT. 1º GRAU</span>';
+    if(tp==='NÃO LOCALIZADO') return'<span class="badge badge-outro">❓ N. LOC.</span>';
+    if(tp==='ERRO') return'<span class="badge badge-outro">❌ ERRO</span>';
+    return'<span class="badge badge-outro">'+(p.tipo||'—')+'</span>';}
+  function _stBadge(st){if(!st) return'<span class="badge badge-st-nl">—</span>';var s=st.toUpperCase();
+    if(s.includes('FAVOR')&&!s.includes('DESFA')) return'<span class="badge badge-fav">✅ FAVORÁVEL</span>';
+    if(s.includes('DESFA'))   return'<span class="badge badge-desf">❌ DESFAVORÁVEL</span>';
+    if(s.includes('EXTINTO')) return'<span class="badge badge-ext">🚫 EXTINTO S/ MÉRITO</span>';
+    if(s.includes('ANULAD'))  return'<span class="badge badge-anul">↩️ SENT. ANULADA</span>';
+    if(s.includes('SEM PAR')) return'<span class="badge badge-sem">⚠️ SEM PARECER</span>';
+    if(s.includes('ACORDO'))  return'<span class="badge badge-fav">🤝 ACORDO</span>';
+    return'<span class="badge badge-st-nl">'+st+'</span>';}
+  function _row(p,i){var s=(p.status||'').toUpperCase();
+    var cls=s.includes('FAVOR')&&!s.includes('DESFA')?'row-fav':s.includes('DESFA')?'row-desf':s?'row-sem':'row-nl';
+    return'<tr class="'+cls+'">'
+      +'<td style="color:#475569;text-align:center;padding-left:8px">'+(i+1)+'</td>'
+      +'<td><span class="proc-num">'+p.numero+'</span></td>'
+      +'<td>'+_tipoBadge(p)+'</td><td>'+_stBadge(p.status)+'</td>'
+      +'<td>'+(p.relator?'<span class="rel-name">'+p.relator+'</span>':'<span style="color:#475569">—</span>')+'</td>'
+      +'<td>'+(p.materia?'<span class="mat-pill">'+p.materia+'</span>':'<span style="color:#475569">—</span>')+'</td>'
+      +'<td>'+(p.valor?'<span class="val-txt">'+p.valor+'</span>':'<span style="color:#334155">—</span>')+'</td>'
+      +'<td><span class="date-txt">'+(p.data||'—')+'</span></td></tr>';}
+
+  var rows='';
+  procs2g.forEach(function(p,i){rows+=_row(p,i);});
+  if(procs1g.length>0){
+    rows+='<tr><td colspan="8" style="background:#1a1a0a;color:#f59e0b;font-weight:700;font-size:.8rem;'
+      +'padding:10px 14px;text-transform:uppercase;letter-spacing:.5px;'
+      +'border-top:2px solid #78350f;border-bottom:1px solid #78350f;">'
+      +'⚠️ Sentenças / Processos sem acórdão de Turma — excluídos das estatísticas acima ('
+      +procs1g.length+')</td></tr>';
+    procs1g.forEach(function(p,i){rows+=_row(p,i);});
+  }
+  document.getElementById('proc-tbody').innerHTML=rows;
+  document.getElementById('proc-section').style.display=rows?'block':'none';
+}
+// ─────────────────────────────────────────────────────────────
 const COR_ERR  = '#94a3b8';
 
 const PALETA_MATERIAS = [
@@ -1487,14 +1670,9 @@ function corStatus(s) {
 }
 
 fetch('/dashboard_data/' + JID)
-  .then(r => r.json())
+  .then(function(r){return r.json();})
   .then(function(d) {
-    var t2g = d.total_2g != null ? d.total_2g : d.total;
-    var t1g = d.total_1g || 0;
-
-    document.getElementById('dash-sub').textContent =
-      t2g + ' processo(s) de 2º grau analisado(s)' +
-      (t1g > 0 ? ' · ' + t1g + ' de 1º grau' : '');
+    _allData = d;
 
     // Links de download
     if (d.tem_arquivo) {
@@ -1506,209 +1684,23 @@ fetch('/dashboard_data/' + JID)
       bd.href = '/download_relatorio/' + JID; bd.style.display = 'inline-block';
     }
 
-    // Banner de aviso para processos de 1º grau
+    // Barra de filtro
+    if ((d.processos||[]).length > 0)
+      document.getElementById('filtro-bar').style.display = 'flex';
+
+    // Banner 1g
+    var t1g = d.total_1g || 0;
     if (t1g > 0) {
       var banner = document.createElement('div');
       banner.style.cssText = 'background:#78350f;color:#fef3c7;border-radius:10px;padding:12px 18px;'
         + 'margin-bottom:18px;font-size:.85rem;font-weight:600;border-left:4px solid #f59e0b;';
       banner.innerHTML = '⚠️ ' + t1g + ' processo(s) sem acórdão de Turma/Câmara foram '
         + '<strong>excluídos das estatísticas e gráficos acima</strong>. '
-        + 'Podem ser sentenças de 1º grau ou processos ainda aguardando julgamento pela Turma. '
         + 'Aparecem separados no final da tabela.';
       document.getElementById('cards-wrap').before(banner);
     }
 
-    // ── Cards de resumo (baseados apenas em 2º grau) ────────
-    var sc = d.status_counts || {};
-    var fav  = sc['FAVORÁVEL'] || 0;
-    var desf = sc['DESFAVORÁVEL'] || 0;
-    var aprov = t2g > 0 ? ((fav / t2g) * 100).toFixed(1) : '0.0';
-
-    var cardsHTML = [
-      {cls:'total', val: t2g,         lbl:'2º Grau — Turmas/Câmaras', sub:'processos analisados'},
-      {cls:'fav',   val: fav,         lbl:'Favoráveis',               sub:'para o consumidor'},
-      {cls:'desf',  val: desf,        lbl:'Desfavoráveis',            sub:'para o consumidor'},
-      {cls:'sem',   val: aprov + '%', lbl:'Aproveitamento',           sub:'decisões favoráveis'},
-    ].map(function(c) {
-      return '<div class="card '+c.cls+'"><div class="card-val">'+c.val+'</div>'
-           + '<div class="card-lbl">'+c.lbl+'</div>'
-           + '<div class="card-sub">'+c.sub+'</div></div>';
-    }).join('');
-    document.getElementById('cards-wrap').innerHTML = cardsHTML;
-
-    if (t2g === 0 && t1g === 0) return;
-    if (t2g > 0) document.getElementById('charts-wrap').style.display = 'grid';
-
-    // ── Gráfico: STATUS DA DECISÃO (donut) ──────────────────
-    var statusLabels = Object.keys(sc);
-    var statusData   = Object.values(sc);
-    var statusCores  = statusLabels.map(corStatus);
-    new Chart(document.getElementById('chart-status'), {
-      type: 'doughnut',
-      data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: statusCores,
-              borderColor: '#1e293b', borderWidth: 3 }] },
-      options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 12 } } },
-          tooltip: { callbacks: { label: function(c) {
-            var pct = ((c.parsed / statusData.reduce((a,b)=>a+b,0))*100).toFixed(1);
-            return c.label + ': ' + c.parsed + ' (' + pct + '%)';
-          }}}}
-      }
-    });
-
-    // ── Gráfico: TIPO DE DECISÃO (donut) ────────────────────
-    var tc = d.tipo_counts || {};
-    var tipoLabels = Object.keys(tc);
-    var tipoData   = Object.values(tc);
-    var tipoCores  = ['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#64748b'];
-    new Chart(document.getElementById('chart-tipo'), {
-      type: 'doughnut',
-      data: { labels: tipoLabels, datasets: [{ data: tipoData, backgroundColor: tipoCores,
-              borderColor: '#1e293b', borderWidth: 3 }] },
-      options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 12 } } } }
-      }
-    });
-
-    // ── Gráfico: MATÉRIA (barras horizontais) ───────────────
-    var mc = d.materia_counts || {};
-    var matEntries = Object.entries(mc)
-      .filter(function(e){ return e[0] && e[0] !== ''; })
-      .sort(function(a,b){ return b[1]-a[1]; });
-    var matLabels = matEntries.map(function(e){ return e[0]; });
-    var matData   = matEntries.map(function(e){ return e[1]; });
-    var matCores  = matLabels.map(function(_,i){ return PALETA_MATERIAS[i % PALETA_MATERIAS.length]; });
-    var altMat = Math.max(220, matLabels.length * 38);
-    document.getElementById('wrap-materia').style.height = altMat + 'px';
-    new Chart(document.getElementById('chart-materia'), {
-      type: 'bar',
-      data: { labels: matLabels, datasets: [{ label: 'Processos', data: matData,
-              backgroundColor: matCores, borderRadius: 6 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false },
-          tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.x + ' processo(s)'; }}}},
-        scales: {
-          x: { grid: { color: '#1e3a5f' }, ticks: { color: '#94a3b8' } },
-          y: { grid: { color: 'transparent' }, ticks: { color: '#cbd5e1', font: { size: 11 } } }
-        }
-      }
-    });
-
-    // ── Gráfico: RELATOR/JUIZ (barras empilhadas) ───────────
-    var rc = d.relator_counts || {};
-    var relatEntries = Object.entries(rc)
-      .filter(function(e){ return e[0] && e[0] !== ''; })
-      .sort(function(a,b) {
-        var totA = Object.values(a[1]).reduce(function(s,v){return s+v;},0);
-        var totB = Object.values(b[1]).reduce(function(s,v){return s+v;},0);
-        return totB - totA;
-      });
-    var relLabels = relatEntries.map(function(e){ return e[0]; });
-
-    // Coleta todos os status que aparecem nos relatores
-    var todosStatus = [];
-    relatEntries.forEach(function(e) {
-      Object.keys(e[1]).forEach(function(s) {
-        if (todosStatus.indexOf(s) === -1) todosStatus.push(s);
-      });
-    });
-
-    var relDatasets = todosStatus.map(function(status) {
-      return {
-        label: status,
-        data: relatEntries.map(function(e){ return e[1][status] || 0; }),
-        backgroundColor: corStatus(status),
-        borderRadius: 4,
-      };
-    });
-
-    var altRel = Math.max(220, relLabels.length * 44);
-    document.getElementById('wrap-relator').style.height = altRel + 'px';
-    new Chart(document.getElementById('chart-relator'), {
-      type: 'bar',
-      data: { labels: relLabels, datasets: relDatasets },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
-          tooltip: { mode: 'index', intersect: false }},
-        scales: {
-          x: { stacked: true, grid: { color: '#1e3a5f' }, ticks: { color: '#94a3b8' } },
-          y: { stacked: true, grid: { color: 'transparent' },
-               ticks: { color: '#cbd5e1', font: { size: 11 } } }
-        }
-      }
-    });
-
-    // ── Tabela de processos ──────────────────────────────────
-    var procs = d.processos || [];
-
-    function _buildTipoBadge(p) {
-      var tp = (p.tipo || '').toUpperCase();
-      if (tp === 'ACÓRDÃO' || tp === 'ACORDAO')
-        return '<span class="badge badge-acordao">🏛️ ACÓRDÃO</span>';
-      if (tp === 'SENTENÇA' || tp === 'SENTENCA') {
-        if (p.dist2g === 'SIM')
-          return '<span class="badge badge-sent-ag">⏳ SENT. (aguard. acórdão)</span>';
-        return '<span class="badge badge-1g">⚖️ SENT. 1º GRAU</span>';
-      }
-      if (tp === 'NÃO LOCALIZADO') return '<span class="badge badge-outro">❓ N. LOC.</span>';
-      if (tp === 'ERRO')           return '<span class="badge badge-outro">❌ ERRO</span>';
-      return '<span class="badge badge-outro">' + (p.tipo || '—') + '</span>';
-    }
-
-    function _buildStBadge(st) {
-      if (!st) return '<span class="badge badge-st-nl">—</span>';
-      var s = st.toUpperCase();
-      if (s.includes('FAVOR') && !s.includes('DESFA')) return '<span class="badge badge-fav">✅ FAVORÁVEL</span>';
-      if (s.includes('DESFA'))    return '<span class="badge badge-desf">❌ DESFAVORÁVEL</span>';
-      if (s.includes('EXTINTO'))  return '<span class="badge badge-ext">🚫 EXTINTO S/ MÉRITO</span>';
-      if (s.includes('ANULAD'))   return '<span class="badge badge-anul">↩️ SENT. ANULADA</span>';
-      if (s.includes('SEM PAR'))  return '<span class="badge badge-sem">⚠️ SEM PARECER</span>';
-      if (s.includes('ACORDO'))   return '<span class="badge badge-fav">🤝 ACORDO</span>';
-      return '<span class="badge badge-st-nl">' + st + '</span>';
-    }
-
-    function _buildRow(p, idx) {
-      var st = (p.status || '').toUpperCase();
-      var rowCls = 'row-nl';
-      if (st.includes('FAVOR') && !st.includes('DESFA')) rowCls = 'row-fav';
-      else if (st.includes('DESFA')) rowCls = 'row-desf';
-      else if (st) rowCls = 'row-sem';
-      var matHtml = p.materia ? '<span class="mat-pill">'+p.materia+'</span>' : '<span style="color:#475569">—</span>';
-      var valHtml = p.valor   ? '<span class="val-txt">'+p.valor+'</span>'   : '<span style="color:#334155">—</span>';
-      var relHtml = p.relator ? '<span class="rel-name">'+p.relator+'</span>': '<span style="color:#475569">—</span>';
-      return '<tr class="'+rowCls+'">'
-        + '<td style="color:#475569;text-align:center;padding-left:8px">'+(idx+1)+'</td>'
-        + '<td><span class="proc-num">'+p.numero+'</span></td>'
-        + '<td>'+_buildTipoBadge(p)+'</td>'
-        + '<td>'+_buildStBadge(p.status)+'</td>'
-        + '<td>'+relHtml+'</td>'
-        + '<td>'+matHtml+'</td>'
-        + '<td>'+valHtml+'</td>'
-        + '<td><span class="date-txt">'+(p.data||'—')+'</span></td>'
-        + '</tr>';
-    }
-
-    if (procs.length > 0) {
-      var tbody = document.getElementById('proc-tbody');
-      var procs2g = procs.filter(function(p){ return p.grau !== '1g'; });
-      var procs1g = procs.filter(function(p){ return p.grau === '1g'; });
-      var rows = '';
-
-      procs2g.forEach(function(p, i){ rows += _buildRow(p, i); });
-
-      // Separador e seção 1g (se houver)
-      if (procs1g.length > 0) {
-        rows += '<tr><td colspan="8" style="background:#1a1a0a;color:#f59e0b;font-weight:700;'
-          + 'font-size:.8rem;padding:10px 14px;text-transform:uppercase;letter-spacing:.5px;'
-          + 'border-top:2px solid #78350f;border-bottom:1px solid #78350f;">'
-          + '⚠️ Sentenças / Processos sem acórdão de Turma — excluídos das estatísticas acima ('
-          + procs1g.length + ')</td></tr>';
-        procs1g.forEach(function(p, i){ rows += _buildRow(p, i); });
-      }
-
-      tbody.innerHTML = rows;
-      document.getElementById('proc-section').style.display = 'block';
-    }
+    aplicarFiltro();
   })
   .catch(function(err) {
     document.getElementById('dash-sub').textContent = 'Erro ao carregar dados: ' + err;
