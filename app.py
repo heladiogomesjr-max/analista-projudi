@@ -2385,6 +2385,58 @@ def api_iniciar_xlsx():
     return jsonify({'ok': True, 'job_id': job_id})
 
 
+@app.route('/api/iniciar_reanalise', methods=['POST', 'OPTIONS'])
+@_require_api_auth
+def api_iniciar_reanalise():
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    data             = request.get_json(force=True, silent=True) or {}
+    cpf              = str(data.get('cpf',   '')).strip()
+    senha            = str(data.get('senha', '')).strip()
+    if not senha or senha == 'undefined':
+        senha = _get_senha_usuario(cpf)
+    filtro_materia   = data.get('filtro_materia', []) or []
+    filtro_status    = data.get('filtro_status',  []) or []
+    processos_texto  = str(data.get('processos_manual', '')).strip()
+    processos_manual = [p.strip() for p in processos_texto.splitlines() if p.strip()] if processos_texto else None
+    modelo_ia        = ia_mod.MODELO_PADRAO
+    nome_advogado    = _carregar_config().get('nome_advogado', '')
+    advogado_key     = _get_advogado_key(cpf)
+
+    api_key = _get_api_key(ia_mod._detectar_provider(modelo_ia))
+    if not api_key:
+        return jsonify({'ok': False, 'error': 'Chave API não configurada'}), 400
+
+    global _job_ativo
+    job_id = uuid.uuid4().hex[:8]
+    jobs[job_id] = {
+        'logs': [], 'status': 'running', 'file': None,
+        'error': '', 'pct': 3, 'subtitulo': 'Lendo Sheets...',
+        'pausado': False, 'cancelado': False,
+        'linhas': [], 'criado_em': time.time(),
+    }
+    with _job_ativo_lock:
+        _job_ativo = job_id
+    threading.Thread(
+        target=workers.processar_job_reanalise,
+        kwargs={
+            'job_id':           job_id,
+            'jobs':             jobs,
+            'advogado_key':     advogado_key,
+            'cpf':              cpf,
+            'senha':            senha,
+            'api_key':          api_key,
+            'modelo_ia':        modelo_ia,
+            'nome_advogado':    nome_advogado,
+            'filtro_materia':   filtro_materia or None,
+            'filtro_status':    filtro_status  or None,
+            'processos_manual': processos_manual,
+        },
+        daemon=True,
+    ).start()
+    return jsonify({'ok': True, 'job_id': job_id})
+
+
 # ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     import webbrowser, subprocess, sys

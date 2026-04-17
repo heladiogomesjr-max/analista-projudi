@@ -159,6 +159,7 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
     <div class="tabs">
       <div class="tab active" onclick="switchTab('djen')">DJEN</div>
       <div class="tab" onclick="switchTab('xlsx')">Processos</div>
+      <div class="tab" onclick="switchTab('reanalise')">Re-análise</div>
     </div>
 
     <!-- TAB DJEN -->
@@ -217,6 +218,45 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
       <button class="btn-run" onclick="iniciarXlsx()">▶ Iniciar análise</button>
     </div>
   </div>
+
+    <!-- TAB RE-ANÁLISE -->
+    <div class="tab-content" id="tab-reanalise">
+      <div class="field">
+        <label>Usuário PROJUDI</label>
+        <div class="select-row">
+          <select id="reanalise-usuario" onchange="preencherSenha('reanalise')"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Filtrar por MATÉRIA</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#fafaf7;border-radius:7px;border:1.5px solid #e0dfd8" id="reanalise-materias">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="OUTRO"> OUTRO</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="COBRANCA_IND"> COBRANCA_IND</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="CARTAO_CREDITO"> CARTAO_CREDITO</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="EMPRESTIMO_CONSIGNADO"> EMPRESTIMO_CONSIGNADO</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="SEGURO_PRESTAMISTA"> SEGURO_PRESTAMISTA</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="CONTA_CORRENTE"> CONTA_CORRENTE</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="FINANCIAMENTO"> FINANCIAMENTO</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="SAQUE_TERMINAL"> SAQUE_TERMINAL</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Filtrar por STATUS</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#fafaf7;border-radius:7px;border:1.5px solid #e0dfd8" id="reanalise-status">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="FAVORÁVEL"> FAVORÁVEL</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="DESFAVORÁVEL"> DESFAVORÁVEL</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="EXTINTO SEM MÉRITO"> EXTINTO SEM MÉRITO</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="SENTENÇA ANULADA"> SENTENÇA ANULADA</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" value="SEM PARECER CONCLUSIVO"> SEM PARECER CONCLUSIVO</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ou processos específicos (um por linha)</label>
+        <textarea id="reanalise-processos" placeholder="Deixe em branco para usar os filtros acima"></textarea>
+      </div>
+      <div class="err-msg" id="reanalise-err"></div>
+      <button class="btn-run" onclick="iniciarReanalise()">🔄 Iniciar re-análise</button>
+    </div>
 
   <!-- JOBS -->
   <div class="jobs-panel">
@@ -335,9 +375,9 @@ async function carregarUsuarios() {
     const res  = await api('/api/usuarios');
     const json = await res.json();
     USUARIOS = json || [];
-    ['djen', 'xlsx'].forEach(t => {
+    ['djen', 'xlsx', 'reanalise'].forEach(t => {
       const sel = document.getElementById(t + '-usuario');
-      sel.innerHTML = USUARIOS.map(u =>
+      if (sel) sel.innerHTML = USUARIOS.map(u =>
         `<option value="${u.cpf}" data-senha="${u.senha}" data-nome="${u.nome || u.label}">${u.label}</option>`
       ).join('');
     });
@@ -356,7 +396,7 @@ function preencherSenha(tab) {
 
 // ── TABS ────────────────────────────────────────────
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['djen','xlsx'][i] === tab));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['djen','xlsx','reanalise'][i] === tab));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
 }
@@ -406,6 +446,26 @@ async function iniciarXlsx() {
     if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise'; }, 2000); }
     else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise'; }
   } catch(e) { mostrarErr(err, 'Erro: ' + e.message); btn.disabled=false; btn.textContent='▶ Iniciar análise'; }
+}
+
+async function iniciarReanalise() {
+  const err  = document.getElementById('reanalise-err');
+  const sel  = document.getElementById('reanalise-usuario');
+  const cpf  = sel.value;
+  const senha = sel.options[sel.selectedIndex]?.dataset?.senha || '';
+  const materias  = [...document.querySelectorAll('#reanalise-materias input:checked')].map(c => c.value);
+  const status    = [...document.querySelectorAll('#reanalise-status input:checked')].map(c => c.value);
+  const processos = document.getElementById('reanalise-processos').value.trim();
+  err.style.display = 'none';
+
+  const btn = document.querySelector('#tab-reanalise .btn-run');
+  btn.disabled = true; btn.textContent = '⏳ Iniciando…';
+  try {
+    const res  = await api('/api/iniciar_reanalise', 'POST', { cpf, senha, filtro_materia: materias, filtro_status: status, processos_manual: processos });
+    const json = await res.json();
+    if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='🔄 Iniciar re-análise'; }, 2000); }
+    else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='🔄 Iniciar re-análise'; }
+  } catch(e) { mostrarErr(err, 'Erro: ' + e.message); btn.disabled=false; btn.textContent='🔄 Iniciar re-análise'; }
 }
 
 // ── JOBS ────────────────────────────────────────────
