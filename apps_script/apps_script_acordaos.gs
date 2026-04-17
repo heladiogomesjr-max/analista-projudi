@@ -154,7 +154,37 @@ function doPost(e) {
       ws.deleteRows(2, ws.getLastRow() - 1);
     }
 
-    // Índice de processos existentes (evita duplicatas)
+    // Modo upsert: atualiza linha existente pelo NÚMERO DO PROCESSO, senão insere nova
+    if (modo === 'upsert') {
+      var lastRow = ws.getLastRow();
+      var idxPorProc = {};
+      if (lastRow > 1) {
+        ws.getRange(2, 1, lastRow - 1, 1).getValues()
+          .forEach(function(r, i) {
+            if (r[0]) idxPorProc[String(r[0]).trim()] = i + 2; // +2: base-1 + pular cabeçalho
+          });
+      }
+      var inseridos = 0;
+      rows.forEach(function(row) {
+        var proc = String(row['NÚMERO DO PROCESSO'] || '').trim();
+        if (!proc) return;
+        var novaLinha = COLUNAS.map(function(col) {
+          return row[col] !== undefined ? row[col] : '';
+        });
+        if (idxPorProc[proc]) {
+          ws.getRange(idxPorProc[proc], 1, 1, COLUNAS.length).setValues([novaLinha]);
+          _aplicarFormatoStatus(ws, idxPorProc[proc], novaLinha);
+        } else {
+          _inserirLinhaFormatada(ws, novaLinha);
+          idxPorProc[proc] = ws.getLastRow();
+        }
+        inseridos++;
+      });
+      SpreadsheetApp.flush();
+      return ok({ inseridos: inseridos, tab: tab });
+    }
+
+    // Índice de processos existentes (evita duplicatas — modo append)
     var existentes = {};
     if (ws.getLastRow() > 1) {
       ws.getRange(2, 1, ws.getLastRow() - 1, 1).getValues()
@@ -201,14 +231,17 @@ function _inserirLinhaFormatada(ws, novaLinha) {
     );
   }
 
-  // Aplica cor da célula STATUS DA DECISÃO conforme o valor
+  _aplicarFormatoStatus(ws, novaIdx, novaLinha);
+}
+
+function _aplicarFormatoStatus(ws, rowIdx, novaLinha) {
   var statusVal = String(novaLinha[I_STATUS] || '').trim();
   var fmt       = STATUS_FORMATO[statusVal];
   if (fmt) {
-    var celStat = ws.getRange(novaIdx, I_STATUS + 1);
-    celStat.setBackground(fmt.bg)
-           .setFontColor(fmt.fg)
-           .setFontWeight('bold');
+    ws.getRange(rowIdx, I_STATUS + 1)
+      .setBackground(fmt.bg)
+      .setFontColor(fmt.fg)
+      .setFontWeight('bold');
   }
 }
 

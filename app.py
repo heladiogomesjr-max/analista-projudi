@@ -1033,6 +1033,95 @@ function salvarUsuario(tab) {
 
 
 # ══════════════════════════════════════════════════════════════
+# HTML — PÁGINA RE-ANÁLISE
+# ══════════════════════════════════════════════════════════════
+REANALISE_HTML = """<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Re-análise do Sheets</title>""" + _CSS + """
+<style>
+.form-card{background:#1e1e1e;border-radius:10px;padding:24px;max-width:680px;margin:24px auto;}
+.form-card h2{color:#bb86fc;margin-bottom:16px;font-size:1.1rem;}
+label{display:block;color:#aaa;font-size:.85rem;margin-bottom:4px;margin-top:14px;}
+select,textarea{width:100%;background:#121212;color:#e0e0e0;border:1px solid #333;
+  border-radius:6px;padding:8px 10px;font-size:.9rem;box-sizing:border-box;}
+textarea{min-height:90px;resize:vertical;font-family:monospace;}
+.checks{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+.checks label{display:flex;align-items:center;gap:5px;color:#ddd;font-size:.85rem;
+  background:#2a2a2a;border-radius:5px;padding:5px 10px;cursor:pointer;margin:0;}
+.checks input{accent-color:#bb86fc;}
+.hint{font-size:.75rem;color:#888;margin-top:4px;}
+.btn-go{margin-top:20px;width:100%;padding:11px;background:#bb86fc;color:#000;
+  border:none;border-radius:7px;font-size:.95rem;font-weight:700;cursor:pointer;}
+.btn-go:hover{background:#ce93d8;}
+.back{display:inline-block;margin:16px auto 0;color:#888;font-size:.82rem;text-decoration:none;}
+.back:hover{color:#ddd;}
+.sep{border:none;border-top:1px solid #2a2a2a;margin:18px 0;}
+</style>
+</head><body>
+<div class="wrap">
+  <h1 class="title">🔄 Re-análise do Sheets</h1>
+  <p class="subtitle">Lê processos já analisados, re-processa com o prompt atual e atualiza o Sheets</p>
+
+  <form method="POST" action="/iniciar_reanalise">
+  <div class="form-card">
+    <h2>👤 Usuário</h2>
+    <label>Credenciais PROJUDI</label>
+    <select name="cpf" id="sel-cpf" onchange="atualizarSenha()">
+      {% for u in usuarios %}
+      <option value="{{ u.cpf }}">{{ u.label }}</option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="senha" id="inp-senha">
+  </div>
+
+  <div class="form-card">
+    <h2>🔍 Filtros (deixe tudo desmarcado para re-analisar todos)</h2>
+
+    <label>Filtrar por MATÉRIA</label>
+    <div class="checks">
+      {% for m in materias %}
+      <label><input type="checkbox" name="filtro_materia" value="{{ m }}"> {{ m }}</label>
+      {% endfor %}
+    </div>
+
+    <hr class="sep">
+
+    <label>Filtrar por STATUS</label>
+    <div class="checks">
+      {% for s in status_opcoes %}
+      <label><input type="checkbox" name="filtro_status" value="{{ s }}"> {{ s }}</label>
+      {% endfor %}
+    </div>
+
+    <hr class="sep">
+
+    <label>Ou informe processos específicos (um por linha)</label>
+    <textarea name="processos_manual" placeholder="0284295-34.2023.8.04.0001&#10;0000943-97.2023.8.04.0001"></textarea>
+    <p class="hint">Se preencher esta caixa, os filtros acima são ignorados.</p>
+  </div>
+
+  <div class="form-card">
+    <button type="submit" class="btn-go">🚀 Iniciar Re-análise em Segundo Plano</button>
+  </div>
+  </form>
+
+  <div style="text-align:center">
+    <a href="/" class="back">← Voltar para a página principal</a>
+  </div>
+</div>
+<script>
+const _senhas = {{ senhas_json | safe }};
+function atualizarSenha() {
+  var cpf = document.getElementById('sel-cpf').value;
+  document.getElementById('inp-senha').value = _senhas[cpf] || '';
+}
+atualizarSenha();
+</script>
+</body></html>"""
+
+
+# ══════════════════════════════════════════════════════════════
 # HTML — PÁGINA DE STATUS
 # ══════════════════════════════════════════════════════════════
 STATUS_HTML = """<!DOCTYPE html>
@@ -1781,6 +1870,84 @@ def iniciar_xlsx():
         args=(job_id, jobs, caminho, cpf, senha, api_key, batch, modelo_ia, nome_advogado, usar_ia),
         kwargs={"numeros_texto": numeros_texto, "relator_filtro": relator,
                 "advogado_key": _get_advogado_key(cpf)},
+        daemon=True,
+    ).start()
+    return redirect(url_for('status_page', job_id=job_id))
+
+
+# ── Re-análise do Sheets ──────────────────────────────────────
+_MATERIAS_OPCOES = [
+    "OUTRO", "COBRANCA_IND", "CARTAO_CREDITO", "EMPRESTIMO_CONSIGNADO",
+    "SEGURO_PRESTAMISTA", "CONTA_CORRENTE", "FINANCIAMENTO", "SAQUE_TERMINAL",
+]
+_STATUS_OPCOES = [
+    "FAVORÁVEL", "DESFAVORÁVEL", "EXTINTO SEM MÉRITO",
+    "SENTENÇA ANULADA", "ACORDO HOMOLOGADO", "SEM PARECER CONCLUSIVO",
+]
+
+@app.route("/reanalise")
+def reanalise_page():
+    import json as _json
+    usuarios = _listar_usuarios()
+    senhas   = {}
+    for u in usuarios:
+        senhas[u['cpf']] = _get_senha_usuario(u['cpf'])
+    return render_template_string(
+        REANALISE_HTML,
+        usuarios=usuarios,
+        senhas_json=_json.dumps(senhas),
+        materias=_MATERIAS_OPCOES,
+        status_opcoes=_STATUS_OPCOES,
+    )
+
+
+@app.route("/iniciar_reanalise", methods=["POST"])
+def iniciar_reanalise():
+    cpf              = request.form.get("cpf", "").strip()
+    senha            = request.form.get("senha", "").strip()
+    filtro_materia   = request.form.getlist("filtro_materia")
+    filtro_status    = request.form.getlist("filtro_status")
+    processos_texto  = request.form.get("processos_manual", "").strip()
+    processos_manual = [p.strip() for p in processos_texto.splitlines() if p.strip()] if processos_texto else None
+
+    if not senha:
+        senha = _get_senha_usuario(cpf)
+    if not cpf or not senha:
+        return "CPF/senha não encontrados. Verifique o config.ini.", 400
+
+    api_key       = _get_api_key(ia_mod._detectar_provider(ia_mod.MODELO_PADRAO))
+    modelo_ia     = ia_mod.MODELO_PADRAO
+    nome_advogado = _carregar_config().get("nome_advogado", "")
+    advogado_key  = _get_advogado_key(cpf)
+
+    if not api_key:
+        return "Chave API não configurada. Verifique o config.ini.", 400
+
+    global _job_ativo
+    job_id = uuid.uuid4().hex[:8]
+    jobs[job_id] = {
+        'logs': [], 'status': 'running', 'file': None,
+        'error': '', 'pct': 3, 'subtitulo': 'Lendo Sheets...',
+        'pausado': False, 'cancelado': False,
+        'linhas': [], 'criado_em': time.time(),
+    }
+    with _job_ativo_lock:
+        _job_ativo = job_id
+    threading.Thread(
+        target=workers.processar_job_reanalise,
+        kwargs={
+            "job_id":           job_id,
+            "jobs":             jobs,
+            "advogado_key":     advogado_key,
+            "cpf":              cpf,
+            "senha":            senha,
+            "api_key":          api_key,
+            "modelo_ia":        modelo_ia,
+            "nome_advogado":    nome_advogado,
+            "filtro_materia":   filtro_materia or None,
+            "filtro_status":    filtro_status  or None,
+            "processos_manual": processos_manual,
+        },
         daemon=True,
     ).start()
     return redirect(url_for('status_page', job_id=job_id))

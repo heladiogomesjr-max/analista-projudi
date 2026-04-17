@@ -37,6 +37,43 @@ def _cfg():
     return c
 
 
+def ler_da_planilha(advogado_key=None, log=None):
+    """
+    Lê todos os processos já analisados do Google Sheets via Apps Script doGet.
+    Retorna lista de dicts com chaves: p, d, r, s, mt, dm, mo, tv, tj
+    """
+    if log is None:
+        log = print
+
+    cfg = _cfg()
+    if not advogado_key:
+        advogado_key = cfg.get('sheets', 'advogado_padrao', fallback='luis_albert')
+
+    url = cfg.get('sheets', 'apps_script_url', fallback='').strip()
+    if not url or url.startswith('#'):
+        log("   ⚠️ Sheets: URL do Apps Script não configurada em config.ini → [sheets] apps_script_url")
+        return []
+
+    adv = advogado_key.upper().replace(' ', '_')
+    try:
+        resp = requests.get(url, params={'adv': adv}, timeout=30)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get('ok'):
+            rows = result.get('data', [])
+            log(f"   📊 Sheets: {len(rows)} processos lidos ({adv})")
+            return rows
+        else:
+            log(f"   ⚠️ Sheets: {result.get('error', 'erro desconhecido')}")
+            return []
+    except requests.exceptions.Timeout:
+        log("   ⚠️ Sheets: timeout ao ler do Google Sheets (30s)")
+        return []
+    except Exception as e:
+        log(f"   ⚠️ Sheets: falha ao ler — {e}")
+        return []
+
+
 def inserir_na_planilha(linhas, turma_vara, advogado_key=None, log=None, modo='append'):
     """
     Envia linhas para a planilha Google Sheets via Apps Script doPost.

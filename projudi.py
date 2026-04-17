@@ -521,6 +521,9 @@ ARQUIVOS_DOC = {
     "sentenca": ["sentença","sentenca","sentencas","sentenças",
                  "sentença de","sentenca de",
                  "decisão monocrática","decisao monocratica","decisão monocrática"],
+    "peticao_inicial": ["petição inicial","peticao inicial",
+                        "petição de inicial","peticao de inicial",
+                        "petição inicial (protocolo)","peticao inicial (protocolo)"],
 }
 
 # Palavras no TEXTO DO EVENTO — matching secundário quando não há sub-linhas com arquivo nomeado.
@@ -542,7 +545,11 @@ PALAVRAS_SENTENCA_FALLBACK = [
 
 # Para petição inicial (sem sub-documento padronizado): matching no texto do evento
 PALAVRAS_PETICAO = ["petição inicial","peticao inicial","petição de inicial",
-                    "peticao de inicial","de inicial","protocolo inicial"]
+                    "peticao de inicial","de inicial","protocolo inicial",
+                    "distribuição","distribuicao",
+                    "juntada de petição inicial","juntada de peticao inicial",
+                    "protocolo de petição","protocolo de peticao",
+                    "recebimento de petição inicial","recebimento de peticao inicial"]
 
 
 _PALAVRAS_TRANSITO = ["transitado em julgado", "trânsito em julgado",
@@ -698,19 +705,31 @@ def _extrair_movimentacoes(page, tipos, url_retorno, log):
                 resultado[f"{tipo}_embargos"] = _extrair_doc(page, embargos, url_retorno, log)
 
         else:
-            # petição inicial: matching no texto do evento
+            # petição inicial
+            # 1ª prioridade: arquivo de nome correto na sub-linha (igual à lógica de acórdão/sentença)
+            nomes_arq_pet = ARQUIVOS_DOC.get(tipo, [])
             evento = next(
-                (e for e in eventos if any(p in e['texto'].lower() for p in PALAVRAS_PETICAO)),
+                (e for e in eventos if any(a in nomes_arq_pet for a in e.get('arquivos', []))),
                 None
-            )
+            ) if nomes_arq_pet else None
+
+            # 2ª prioridade: matching no texto do evento
+            if not evento:
+                evento = next(
+                    (e for e in eventos if any(p in e['texto'].lower() for p in PALAVRAS_PETICAO)),
+                    None
+                )
+
             if not evento:
                 if tipo == "peticao_inicial" and eventos:
-                    # Exclui certidões do fallback — petição inicial é sempre o evento substantivo mais antigo
-                    sem_certidao = [e for e in eventos
-                                    if "certidão" not in e['texto'].lower()
-                                    and "certidao" not in e['texto'].lower()]
-                    evento = sem_certidao[-1] if sem_certidao else eventos[-1]
-                    log(f"      ⚠️ Petição inicial não encontrada. Usando evento mais antigo: {evento['texto'][:55]}")
+                    # Exclui certidões e acórdãos/sentenças do fallback
+                    nomes_excluir = ARQUIVOS_DOC.get("acordao", []) + ARQUIVOS_DOC.get("sentenca", [])
+                    sem_excluidos = [e for e in eventos
+                                     if "certidão" not in e['texto'].lower()
+                                     and "certidao" not in e['texto'].lower()
+                                     and not any(a in nomes_excluir for a in e.get('arquivos', []))]
+                    evento = sem_excluidos[-1] if sem_excluidos else eventos[-1]
+                    log(f"      ⚠️ Petição inicial não encontrada por keywords. Usando evento mais antigo: {evento['texto'][:70]}")
                 else:
                     log(f"      ⚠️ '{tipo}' não encontrado nos eventos.")
                     continue
@@ -1118,14 +1137,10 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                         )
                         texto_sentenca          = docs_1g.get("sentenca", "")
                         texto_sentenca_embargos = docs_1g.get("sentenca_embargos", "")
-                        # Só extrai petição se houver acórdão (2g) ou sentença (1g)
-                        if texto_acordao.strip() or texto_sentenca.strip():
-                            docs_pet = _extrair_movimentacoes(
-                                page, ["peticao_inicial"], url_1g_proc, log
-                            )
-                            texto_peticao = docs_pet.get("peticao_inicial", "")
-                        else:
-                            log("   ⏭️ Sem acórdão e sem sentença — petição ignorada.")
+                        docs_pet = _extrair_movimentacoes(
+                            page, ["peticao_inicial"], url_1g_proc, log
+                        )
+                        texto_peticao = docs_pet.get("peticao_inicial", "")
             else:
                 log("   ⚠️ Link do 1º Grau não encontrado na página 2g.")
         except Exception as e:
@@ -1180,14 +1195,10 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                         )
                         texto_sentenca          = docs_1g.get("sentenca", "")
                         texto_sentenca_embargos = docs_1g.get("sentenca_embargos", "")
-                        # Só extrai petição se encontrou sentença
-                        if texto_sentenca.strip():
-                            docs_pet = _extrair_movimentacoes(
-                                page, ["peticao_inicial"], url_proc_1g, log
-                            )
-                            texto_peticao = docs_pet.get("peticao_inicial", "")
-                        else:
-                            log("   ⏭️ Sem sentença — petição ignorada.")
+                        docs_pet = _extrair_movimentacoes(
+                            page, ["peticao_inicial"], url_proc_1g, log
+                        )
+                        texto_peticao = docs_pet.get("peticao_inicial", "")
             except Exception as e:
                 log(f"   ⚠️ Docs 1º Grau: {e}")
         else:

@@ -136,6 +136,13 @@ def limpar_cache():
     _cache_carregado = True
     _salvar_cache()
 
+def limpar_cache_processos(numeros):
+    """Remove do cache apenas os processos da lista (sem apagar os demais)."""
+    _carregar_cache()
+    for n in numeros:
+        _cache_ia.pop(_chave_cache(n), None)
+    _salvar_cache()
+
 def _chave_cache(numero):
     return re.sub(r"[^0-9]", "", numero)
 
@@ -163,6 +170,12 @@ Antes de preencher qualquer campo, leia TODOS os documentos e responda intername
              No recurso: quem recorreu — o consumidor ou o banco?
   PASSO C — SENTENÇA DE 1º GRAU: O juiz deu razão a quem?
              Procedente, improcedente, parcialmente procedente?
+             ⚠️ VERIFICAÇÃO OBRIGATÓRIA: A sentença de 1º grau EXTINGUIU o processo sem
+             julgamento do mérito (art. 485 CPC)? Sinais: "extinto sem resolução do mérito",
+             "extingo o processo", "carência de ação", "ilegitimidade de parte",
+             "falta de interesse processual", "coisa julgada", "abandono", "desistência".
+             Se SIM → anote internamente: "SENTENÇA_1G = EXTINCAO_SEM_MERITO".
+             Isso será usado no PASSO 3 para não classificar como DESFAVORÁVEL.
   PASSO D — VERIFICAÇÃO DE ACORDO (obrigatório antes de qualquer outra classificação):
              Varre TODOS os documentos — petição, sentença, acórdão, embargos.
              Há QUALQUER menção a: acordo, transação, composição amigável, homologação,
@@ -172,6 +185,21 @@ Antes de preencher qualquer campo, leia TODOS os documentos e responda intername
   PASSO E — DISPOSITIVO DO ACÓRDÃO: Qual é a frase exata do dispositivo?
              (começa com "ACORDAM", "Ante o exposto", "Por tais fundamentos")
              Este é o único elemento que determina o resultado — leia-o antes do voto.
+  PASSO E.1 — NATUREZA DO RESULTADO (obrigatório antes de classificar FAVORÁVEL/DESFAVORÁVEL):
+             O dispositivo resolve o MÉRITO da causa ou é uma decisão PROCESSUAL?
+             → MÉRITO: condenação em danos, inexigibilidade de débito, improcedência do pedido.
+             → PROCESSUAL: anulação/cassação da sentença com retorno dos autos ao 1º grau.
+             ⚠️ Se PROCESSUAL → DECISAO = SENTENÇA ANULADA. Não aplique a lógica de provimento.
+             Expressões que indicam anulação processual (independentemente de "DAR PROVIMENTO"):
+               "anular a sentença", "cassar a sentença", "nulo o processo",
+               "retorno dos autos", "retornar para novo julgamento", "determinar novo julgamento",
+               "baixar para julgamento do mérito", "retornar para instrução e julgamento",
+               "anulação do feito", "anula-se a sentença", "declara-se nula a sentença".
+             RACIOCÍNIO JURÍDICO: "DAR PROVIMENTO PARA ANULAR" significa que o recorrente
+             ganhou o recurso, mas o MÉRITO da demanda original NÃO foi decidido — o processo
+             voltará ao 1º grau para novo julgamento. Não há condenação nem inexigibilidade.
+             Classificar este caso como FAVORÁVEL seria um ERRO GRAVE: o consumidor não recebeu
+             nada — o juiz apenas mandou o processo ser julgado novamente.
   PASSO F — CONSISTÊNCIA DO VOTO: O que o relator descreve bate com a petição do PASSO A?
              Se o voto menciona produto ou fatos ausentes na petição
              (ex: cita "consórcio" mas a petição é sobre conta corrente),
@@ -182,6 +210,17 @@ Antes de preencher qualquer campo, leia TODOS os documentos e responda intername
 ═══ DISPOSITIVO — FONTE SOBERANA DO RESULTADO ═══
 O dispositivo final do acórdão (frases que começam com "ACORDAM", "Ante o exposto", "Por tais
 fundamentos", "Diante do exposto") é a ÚNICA fonte para determinar DECISAO.
+
+⚠️ ARMADILHA CRÍTICA — "DAR PROVIMENTO" NÃO É SINÔNIMO DE FAVORÁVEL:
+  "DAR PROVIMENTO" indica apenas que o RECORRENTE ganhou o recurso.
+  O que importa é o EFEITO CONCRETO do provimento sobre o direito do consumidor:
+  → "Dá provimento para CONDENAR o réu em R$ X" → FAVORÁVEL (mérito resolvido)
+  → "Dá provimento para DECLARAR a inexigibilidade" → FAVORÁVEL (mérito resolvido)
+  → "Dá provimento para ANULAR a sentença e determinar novo julgamento" → SENTENÇA ANULADA
+  → "Dá provimento para CASSAR a sentença, retornando os autos ao 1º grau" → SENTENÇA ANULADA
+  → "Dá provimento para ANULAR o feito por cerceamento de defesa" → SENTENÇA ANULADA
+  REGRA: se o provimento APENAS ANULA/CASSA sem resolver o mérito → SENTENÇA ANULADA.
+  O consumidor não ganhou nada de concreto; o processo ainda será julgado novamente.
 
 ⚠️ O CORPO DO VOTO PODE CONTER ERROS GRAVES — nunca o use como base isolada:
   — Afirmações factualmente erradas sobre o resultado de 1º grau (ex: relator escreve
@@ -204,24 +243,61 @@ Valores válidos para DECISAO:
 
 PASSO 0 — Identifique o advogado do AUTOR (subscrição da petição ou cabeçalho do acórdão).
 PASSO 1 — Identifique o RECORRENTE. O consumidor pode ser RECORRENTE ou RECORRIDO — leia quem é quem.
-PASSO 2 — Localize o dispositivo e identifique o resultado:
-  "DAR PROVIMENTO" / "PROVIDO" → RECORRENTE ganhou
-  "NEGAR PROVIMENTO" / "DESPROVIDO" / "NÃO PROVIDO" → RECORRENTE perdeu
-  ⚠️ "RECURSO DESPROVIDO" com banco como RECORRENTE = banco perdeu = FAVORÁVEL ao consumidor
-  "ANULAR/CASSAR SENTENÇA" → SENTENÇA ANULADA
-  "homologo o acordo" / "acordo homologado" / "transação homologada" / "partes celebraram acordo"
-    / "composição amigável" / "desistência com acordo" → ACORDO HOMOLOGADO
-  ⚠️ EXTINTO SEM MÉRITO é a última opção — aplique SOMENTE após confirmar duas condições:
-     (1) Não há NENHUM sinal de acordo em nenhum dos documentos (verificou no PASSO D?)
-     (2) A extinção é por motivo processual sem resolução de mérito: ilegitimidade,
-         falta de interesse, coisa julgada, desistência SEM acordo, abandono (art. 485 CPC)
-     A palavra "extinto" ou "extinção" sozinha NÃO determina EXTINTO SEM MÉRITO.
-     Acordo extingue com resolução de mérito (art. 487, III, b CPC) → ACORDO HOMOLOGADO.
+PASSO 2 — Localize o dispositivo. Aplique as verificações NA ORDEM ABAIXO (a primeira que se
+           encaixar determina DECISAO; não prossiga para as seguintes):
+
+  2-A) VERIFICAÇÃO DE ANULAÇÃO/CASSAÇÃO (PRIORIDADE MÁXIMA):
+       O dispositivo contém qualquer das expressões: "anular a sentença", "cassar a sentença",
+       "nulo o processo", "anula-se", "declara-se nula", "retorno dos autos", "novo julgamento",
+       "retornar para instrução", "baixar para julgamento do mérito", "cerceamento de defesa"
+       combinado com retorno, "anulação do feito"?
+       ➜ Se SIM → DECISAO = SENTENÇA ANULADA. Encerre aqui. Não aplique PASSO 2-B nem PASSO 3.
+       ⚠️ Isso vale mesmo que o dispositivo diga "DAR PROVIMENTO" — o provimento é o mecanismo,
+          a anulação é o efeito. O mérito NÃO foi decidido; o processo volta ao 1º grau.
+
+  2-B) VERIFICAÇÃO DE ACORDO:
+       "homologo o acordo" / "acordo homologado" / "transação homologada" /
+       "partes celebraram acordo" / "composição amigável" / "desistência com acordo"?
+       ➜ Se SIM → DECISAO = ACORDO HOMOLOGADO. Encerre aqui.
+
+  2-C) VERIFICAÇÃO DE EXTINÇÃO SEM MÉRITO — leia ACÓRDÃO e SENTENÇA DE 1º GRAU:
+       CASO 1 — Extinção explícita no próprio acórdão:
+         O dispositivo do acórdão contém: "extinto sem resolução", "extingo o processo",
+         "carência de ação", "art. 485", "ilegitimidade", "abandono"?
+         ➜ Confirme: (a) sem acordo em nenhum documento; (b) motivo é processual.
+         ➜ Se SIM → EXTINTO SEM MÉRITO. Encerre aqui.
+       CASO 2 — Acórdão mantém extinção de 1º grau (caso mais comum):
+         O acórdão diz apenas "NEGO PROVIMENTO" / "DESPROVIDO", mas a SENTENÇA DE 1º GRAU
+         (PASSO C) extinguiu o processo sem mérito (SENTENÇA_1G = EXTINCAO_SEM_MERITO)?
+         ➜ Se SIM → o acórdão simplesmente confirmou a extinção — EXTINTO SEM MÉRITO.
+         ⚠️ ATENÇÃO: "NEGAR PROVIMENTO ao recurso do consumidor" que apelou de uma extinção
+            NÃO é DESFAVORÁVEL — é EXTINTO SEM MÉRITO. O mérito nunca foi julgado.
+       A palavra "extinto" sozinha no acórdão NÃO determina EXTINTO SEM MÉRITO se houver acordo.
+       Acordo extingue com resolução de mérito (art. 487, III, b CPC) → ACORDO HOMOLOGADO.
+       ➜ Se confirmados os casos acima → DECISAO = EXTINTO SEM MÉRITO. Encerre aqui.
+
+  2-D) DECISÃO DE MÉRITO (provimento/desprovimento):
+       Somente chegue aqui se nenhuma das verificações anteriores se aplicou.
+       "DAR PROVIMENTO" / "PROVIDO" → RECORRENTE ganhou o mérito
+       "NEGAR PROVIMENTO" / "DESPROVIDO" / "NÃO PROVIDO" → RECORRENTE perdeu o mérito
+       ⚠️ "RECURSO DESPROVIDO" com banco como RECORRENTE = banco perdeu = FAVORÁVEL ao consumidor
+       → Prossiga para PASSO 3.
+
 PASSO 3 — Combine (DECISAO reflete SEMPRE a perspectiva do consumidor):
   consumidor é RECORRENTE + DAR PROVIMENTO    → FAVORÁVEL
-  consumidor é RECORRENTE + NEGAR PROVIMENTO  → DESFAVORÁVEL
+  consumidor é RECORRENTE + NEGAR PROVIMENTO  → DESFAVORÁVEL *
   banco/réu  é RECORRENTE + DAR PROVIMENTO    → DESFAVORÁVEL
   banco/réu  é RECORRENTE + NEGAR PROVIMENTO  → FAVORÁVEL
+
+  * ⚠️ EXCEÇÃO OBRIGATÓRIA antes de concluir DESFAVORÁVEL:
+    Se "consumidor é RECORRENTE + NEGAR PROVIMENTO", verifique o PASSO C:
+    → A sentença de 1º grau foi EXTINCAO_SEM_MERITO (extinguiu sem julgar o mérito)?
+    → Se SIM: o acórdão apenas manteve a extinção → DECISAO = EXTINTO SEM MÉRITO.
+    → Se NÃO (sentença julgou o mérito): aí sim → DECISAO = DESFAVORÁVEL.
+    DISTINÇÃO CRÍTICA: DESFAVORÁVEL pressupõe que o mérito foi julgado contra o consumidor.
+    EXTINTO SEM MÉRITO significa que o processo terminou por razão processual — o mérito
+    nunca foi enfrentado. São situações juridicamente distintas com consequências práticas
+    diferentes (EXTINTO SEM MÉRITO geralmente permite reajuizamento da ação).
 
   ⚠️ ATENÇÃO: Mesmo que o banco seja o recorrente e ganhe o recurso, se o resultado
   final prejudica o consumidor, DECISAO = DESFAVORÁVEL. O STATUS é sempre do
@@ -300,7 +376,26 @@ Use EXATAMENTE um dos códigos abaixo. Para cada um: leia o IDENTIFICAR e o NÃO
 
   MORA_CEL            — Mora em contrato de celular/operadora. IDENTIFICAR quando: a mora ou encargo indevido refere-se a contrato com operadora de telefonia celular.
 
-  OUTRO               — Matéria completamente fora do sistema. IDENTIFICAR quando: a ação NÃO envolve qualquer produto bancário, financeiro, de telefonia ou energia — é matéria completamente estranha ao portfólio do escritório. Use com extrema parcimônia. NÃO CONFUNDIR com COBRANCA_IND (qualquer cobrança financeira indevida sem rubrica específica — prefira COBRANCA_IND a OUTRO) nem com ESPECIFICA (ação de consumidor/bancário com narrativa única — prefira ESPECIFICA a OUTRO). Se o produto ou serviço contestado puder ser identificado mesmo que de forma vaga, use a matéria correspondente, nunca OUTRO.
+  OUTRO               — Matéria não identificável ou fora do sistema. IDENTIFICAR quando:
+                        (A) Nenhum documento (petição, acórdão, sentença) permite identificar
+                            o produto/serviço contestado com ESPECIFICIDADE SUFICIENTE (ver abaixo).
+                        (B) A petição foi extraída mas a ação NÃO envolve produto bancário,
+                            financeiro, de telefonia ou energia — estranha ao portfólio do escritório.
+                        ESPECIFICIDADE SUFICIENTE para classificar SEM a petição:
+                          → Rubrica exata citada: "SAQUE TERMINAL", "SEGURO PRESTAMISTA",
+                            "PARC CRED PESS", "BX.ANT.FIN", "RMC", "RCC", "ANUIDADE",
+                            "INVEST FÁCIL", "SVA", "ADIANTAMENTO A DEPOSITANTE", "MORA CRED PESS",
+                            "INCORPORAÇÃO BANCOS", "TÍTULO DE CAPITALIZAÇÃO", etc.
+                          → Nome do produto identificado claramente na ementa ou no voto:
+                            "empréstimo não contratado", "seguro prestamista", "cartão consignado",
+                            "reserva de margem consignável", "serviço de valor adicionado", etc.
+                        NÃO É SUFICIENTE para classificar (use OUTRO nesses casos):
+                          → "cláusulas abusivas", "descontos bancários", "relação de consumo",
+                            "cobrança indevida" sem especificar o produto, "direito do consumidor",
+                            "prática abusiva" sem detalhar o produto/serviço.
+                        NÃO CONFUNDIR com COBRANCA_IND: só use COBRANCA_IND se for possível
+                        identificar claramente que é uma cobrança financeira indevida, mas sem
+                        rubrica específica catalogada no sistema.
 
   PARC_AUTOMATICO     — Parcelamento automático de fatura do cartão. IDENTIFICAR quando: contesta parcelamento do saldo da fatura do cartão de crédito imposto pelo banco após pagamento mínimo. NÃO CONFUNDIR com RMC: PARC_AUTOMATICO ocorre em cartão de crédito comum; RMC é cartão consignado com desconto em folha.
 
@@ -334,22 +429,51 @@ Use EXATAMENTE um dos códigos abaixo. Para cada um: leia o IDENTIFICAR e o NÃO
 
   VIDA_PREV           — Desconto de seguro de vida ou previdência. IDENTIFICAR quando: contesta descontos no extrato bancário a título de "Bradesco Vida e Previdência" ou produto similar debitado sem contratação. NÃO CONFUNDIR com SEGURO: VIDA_PREV foca especificamente em produtos de previdência/vida debitados avulsamente em conta.
 
-⚠️ REGRAS ESPECIAIS DE MATÉRIA:
-  • Se DECISAO = "SEM PARECER CONCLUSIVO" → classifique MATERIA com base na PETIÇÃO INICIAL
-    se ela estiver disponível e permitir identificar o produto/serviço contestado.
-    Use "OUTRO" apenas se a petição inicial também estiver ausente ou não permitir identificar a matéria.
-  • Se DECISAO = "EXTINTO SEM MÉRITO" → classifique MATERIA com base na petição inicial
-    ou acórdão disponível, igual às demais decisões. Use "OUTRO" apenas se nenhum documento
-    permitir identificar o produto ou serviço contestado.
-  • Se DECISAO = "SENTENÇA ANULADA" → use a matéria da petição inicial se disponível.
+⚠️ REGRAS ESPECIAIS DE MATÉRIA — HIERARQUIA DE FONTES:
+  Consulte as fontes NA ORDEM abaixo. Use a primeira que permitir identificar o produto
+  com ESPECIFICIDADE SUFICIENTE (rubrica exata ou nome do produto claramente mencionado):
+
+  FONTE 1 — PETIÇÃO INICIAL (mais confiável):
+    Se extraída, use-a como base principal. Identifica o produto pelo nome e pela rubrica
+    do desconto contestado. Acórdão e sentença confirmam, não substituem.
+
+  FONTE 2 — ACÓRDÃO (ementa e voto):
+    Se a petição não foi extraída, busque no acórdão:
+    → Na EMENTA: geralmente resume o produto disputado (ex: "SEGURO PRESTAMISTA",
+      "PARCELA CRÉDITO PESSOAL", "RESERVA DE MARGEM CONSIGNÁVEL", "SVA").
+    → No VOTO: o relator frequentemente cita a rubrica exata do desconto contestado.
+    → No DISPOSITIVO: às vezes nomeia o produto ao declarar a inexigibilidade.
+    Use apenas se encontrar menção ESPECÍFICA. Termos genéricos não classificam.
+
+  FONTE 3 — SENTENÇA DE 1º GRAU:
+    Se petição e acórdão não identificaram, busque na sentença:
+    → O juiz geralmente descreve os fatos e cita a rubrica contestada pelo autor.
+    → Procure frases como "o autor contesta desconto de...", "a cobrança de...",
+      "débito sob o título de...", "o produto denominado...".
+    Use apenas se encontrar menção ESPECÍFICA. Termos genéricos não classificam.
+
+  FONTE 4 — OUTRO (último recurso):
+    Se nenhuma das fontes acima identificou o produto com especificidade suficiente,
+    use OUTRO. Não infira, não adivinhe. Uma classificação errada distorce o percentual
+    de êxito por matéria e compromete a análise estratégica do escritório.
+
+  Esta hierarquia aplica-se a QUALQUER valor de DECISAO (FAVORÁVEL, DESFAVORÁVEL,
+  EXTINTO SEM MÉRITO, SENTENÇA ANULADA, SEM PARECER CONCLUSIVO, ACORDO HOMOLOGADO).
 
 ═══ REGRAS DE VALORES DE CONDENAÇÃO ═══
 Procure em: acórdão/embargos de mérito → sentença → petição inicial.
 Use o valor do acórdão se ele reformou a sentença.
 Preencha DANO_MATERIAL e DANO_MORAL separadamente. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00).
-Deixe ambos vazios se DESFAVORÁVEL, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO.
+Deixe ambos vazios se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO.
 Para ACORDO HOMOLOGADO: preencha os valores acordados se expressamente informados no documento.
 
+⚠️ Se DECISAO = SENTENÇA ANULADA:
+  — DANO_MORAL e DANO_MATERIAL devem estar SEMPRE vazios, sem exceção.
+  — Razão: o mérito não foi decidido. A sentença foi anulada e o processo voltará ao 1º grau
+    para novo julgamento. Qualquer valor que apareça no texto é da sentença anulada —
+    não tem validade jurídica e NÃO deve ser transcrito.
+  — No RACIOCINIO, descreva o motivo da anulação (ex: cerceamento de defesa, falta de
+    fundamentação, incompetência) e que o processo retornará para novo julgamento.
 ⚠️ Se DECISAO = FAVORÁVEL mas não há condenação monetária:
   — Descreva a tutela obtida no RACIOCINIO (inexigibilidade, obrigação de fazer, suspensão de desconto etc.)
   — Deixe DANO_MORAL e DANO_MATERIAL vazios, mas NUNCA deixe o RACIOCINIO vago sobre o que o consumidor ganhou.
@@ -393,12 +517,12 @@ Retorne SOMENTE este JSON (sem markdown).
 IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógica do que você escreveu no RACIOCINIO.
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
-  "RACIOCINIO": "Análise comparativa obrigatória em 4 partes: (0) CONTEXTO DO PROCESSO — o que a petição inicial contesta (produto/serviço), o que o consumidor pede, e o que a sentença de 1º grau decidiu. (1) DISPOSITIVO DO ACÓRDÃO — cite a frase exata do dispositivo (ex: 'ACORDAM negar provimento ao recurso interposto pelo banco'). Quem recorreu? O resultado favorece o consumidor ou o banco? (2) ACORDO OU EXTINÇÃO — houve menção a acordo, transação ou homologação em qualquer documento? Se sim, descreva. Se o processo foi extinto, qual foi o motivo exato (processual sem mérito, ou extinção por acordo)? (3) RESULTADO CONCRETO — se FAVORÁVEL: qual benefício o consumidor obteve (danos morais R$ X, danos materiais R$ Y, inexigibilidade de débito, suspensão de desconto)? Se DESFAVORÁVEL: o que foi negado? Discrimine valores e tutelas. NUNCA escreva apenas 'recurso provido' sem explicar o que isso significa para o consumidor.",
+  "RACIOCINIO": "Análise comparativa obrigatória em 5 partes: (0) CONTEXTO DO PROCESSO — o que a petição inicial contesta (produto/serviço), o que o consumidor pede, e o que a sentença de 1º grau decidiu. (1) DISPOSITIVO DO ACÓRDÃO — cite a frase exata do dispositivo (ex: 'ACORDAM negar provimento ao recurso interposto pelo banco'). Quem recorreu? (1.5) NATUREZA DO RESULTADO — o dispositivo é uma decisão de MÉRITO (condenação, inexigibilidade, improcedência) ou uma decisão PROCESSUAL (anula/cassa a sentença e remete para novo julgamento, extingue sem mérito)? Se PROCESSUAL por anulação: descreva o motivo da anulação (cerceamento de defesa, falta de fundamentação, incompetência, vício processual) e confirme que DECISAO = SENTENÇA ANULADA e que os valores devem estar vazios. (2) ACORDO OU EXTINÇÃO — houve menção a acordo, transação ou homologação em qualquer documento? Se sim, descreva. Se o processo foi extinto, qual foi o motivo exato (processual sem mérito, ou extinção por acordo)? (3) RESULTADO CONCRETO — se FAVORÁVEL: qual benefício CONCRETO o consumidor obteve (danos morais R$ X, danos materiais R$ Y, inexigibilidade de débito, suspensão de desconto)? Se DESFAVORÁVEL: o que foi negado? Se SENTENÇA ANULADA: o mérito NÃO foi decidido — não cite valores. NUNCA escreva apenas 'recurso provido' sem explicar o efeito concreto para o consumidor.",
   "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
   "TRANSITADO": "SIM se identificou sinal de trânsito em julgado em qualquer documento ou no histórico de movimentos. NÃO caso contrário.",
   "MATERIA": "SIGLA_DA_MATERIA",
-  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor material acordado se informado.",
-  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. Vazio se não houver ou se DESFAVORÁVEL/EXTINTO SEM MÉRITO/SEM PARECER. Para ACORDO HOMOLOGADO: valor moral acordado se informado."
+  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO — nesses casos o mérito não foi resolvido ou o consumidor não obteve valor. Para ACORDO HOMOLOGADO: valor material acordado se expressamente informado.",
+  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO — nesses casos o mérito não foi resolvido ou o consumidor não obteve valor. Para ACORDO HOMOLOGADO: valor moral acordado se expressamente informado."
 }}"""
 
 

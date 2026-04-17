@@ -469,6 +469,7 @@ def _executar_pipeline(job_id, jobs, numeros, cpf, senha, api_key,
                                 turma_vara=linha.get("TURMA/VARA") or "Geral",
                                 advogado_key=job.get("advogado_key"),
                                 log=log,
+                                modo=job.get('sheets_modo', 'append'),
                             )
                         except Exception as _e_sh:
                             log(f"   ⚠️ Sheets: {_e_sh}")
@@ -576,6 +577,92 @@ def processar_job_xlsx(job_id, jobs, caminho_xlsx, cpf, senha, api_key, batch_si
 
         # 3. Finaliza (relatório + status)
         _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia, nome_advogado=nome_advogado or "")
+
+    except Exception as e:
+        job['status'] = 'error'
+        job['error']  = str(e)
+        log(f"❌ Erro geral: {e}")
+
+
+# ══════════════════════════════════════════════════════════════
+# WORKER RE-ANÁLISE (lê Sheets → re-analisa → upsert Sheets)
+# ══════════════════════════════════════════════════════════════
+def processar_job_reanalise(job_id, jobs, advogado_key, cpf, senha, api_key,
+                             modelo_ia=None, nome_advogado=None,
+                             filtro_materia=None, filtro_status=None,
+                             processos_manual=None):
+    job = jobs[job_id]
+    job['advogado_key'] = advogado_key
+    job['sheets_modo']  = 'upsert'
+
+    def log(msg):
+        print(msg, flush=True)
+        job['logs'].append(msg)
+
+    def pct(p, sub=''):
+        job['pct'] = p
+        job['subtitulo'] = sub
+
+    try:
+        if not _SHEETS_OK:
+            job['status'] = 'error'
+            job['error']  = "Módulo sheets não disponível."
+            return
+
+        # 1. Lê processos do Sheets
+        pct(3, "Lendo Google Sheets...")
+        log("📊 Conectando ao Google Sheets...")
+        rows_sheets = _sheets_mod.ler_da_planilha(advogado_key, log=log)
+
+        if not rows_sheets and not processos_manual:
+            job['status'] = 'error'
+            job['error']  = "Nenhum processo encontrado no Sheets. Verifique a URL do Apps Script no config.ini."
+            return
+
+        log(f"   Total no Sheets: {len(rows_sheets)} processos.")
+
+        # 2. Filtra processos a re-analisar
+        if processos_manual:
+            numeros = list(dict.fromkeys(p.strip() for p in processos_manual if p.strip()))
+            log(f"   Filtro manual: {len(numeros)} processo(s) informados.")
+        else:
+            mat_set  = set(filtro_materia or [])
+            stat_set = set(filtro_status  or [])
+            numeros  = []
+            for r in rows_sheets:
+                if mat_set  and r.get('mt', '') not in mat_set:
+                    continue
+                if stat_set and r.get('s',  '') not in stat_set:
+                    continue
+                numeros.append(r['p'])
+            numeros = list(dict.fromkeys(numeros))
+            desc = []
+            if mat_set:  desc.append(f"MATÉRIA ∈ {sorted(mat_set)}")
+            if stat_set: desc.append(f"STATUS ∈ {sorted(stat_set)}")
+            log(f"   Filtro: {' + '.join(desc) or 'todos'} → {len(numeros)} processo(s).")
+
+        if not numeros:
+            job['status'] = 'done'
+            job['pct']    = 100
+            job['subtitulo'] = "Nenhum processo atende aos filtros."
+            log("ℹ️ Nenhum processo encontrado com os filtros informados.")
+            return
+
+        pct(6, f"{len(numeros)} processos para re-análise.")
+
+        # Limpa cache IA apenas dos processos selecionados
+        ia.limpar_cache_processos(numeros)
+        log(f"   🗑️ Cache IA limpo para {len(numeros)} processo(s).")
+
+        # 3. Executa pipeline (re-scrape + nova IA, envia upsert ao Sheets)
+        linhas = _executar_pipeline(
+            job_id, jobs, numeros, cpf, senha, api_key,
+            modelo_ia, nome_advogado, usar_ia=True,
+        )
+
+        # 4. Finaliza
+        _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, True,
+                       nome_advogado=nome_advogado or "")
 
     except Exception as e:
         job['status'] = 'error'
