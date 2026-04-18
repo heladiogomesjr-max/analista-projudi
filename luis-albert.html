@@ -107,6 +107,11 @@ tr:hover td{background:#fafaf7}
 
 <div class="wrap">
   <div class="filter-bar">
+    <span class="lbl">📅 Período:</span>
+    <input type="date" id="f-ini" style="background:#fff;border:1px solid #e0dfd8;border-radius:6px;padding:4px 8px;font-size:12px;color:#333;cursor:pointer" oninput="applyDateFilter()">
+    <span class="lbl">até</span>
+    <input type="date" id="f-fim" style="background:#fff;border:1px solid #e0dfd8;border-radius:6px;padding:4px 8px;font-size:12px;color:#333;cursor:pointer" oninput="applyDateFilter()">
+    <div style="width:1px;height:16px;background:#e8e7e3;margin:0 6px;flex-shrink:0"></div>
     <span class="lbl">Filtro ativo:</span>
     <span id="filter-info">Todos os processos</span>
     <div class="chip chip-clear" id="btn-clear" onclick="clearFilters()">✕ Limpar</div>
@@ -180,7 +185,16 @@ const BADGE = {
   'ACORDO HOMOLOGADO':'b-acrd',
 };
 
-let DATA=[],activeTv=null,activeRel=null,activeMat=null,activeStat=null,activeMes=null,chStatus=null,chMonth=null;
+let DATA=[],activeTv=null,activeRel=null,activeMat=null,activeStat=null,activeMes=null,activeDateIni=null,activeDateFim=null,chStatus=null,chMonth=null;
+
+function _parseData(s){if(!s||s==='—')return null;const p=s.split('/');return p.length===3?new Date(+p[2],+p[1]-1,+p[0]):null;}
+function applyDateFilter(){
+  const ini=document.getElementById('f-ini').value;
+  const fim=document.getElementById('f-fim').value;
+  activeDateIni=ini?new Date(ini):null;
+  activeDateFim=fim?new Date(fim+'T23:59:59'):null;
+  refresh();
+}
 
 async function loadData() {
   setDot('loading'); setBtnRefresh(true);
@@ -209,13 +223,13 @@ function setBtnRefresh(d){const el=document.getElementById('btn-refresh');el.dis
 function showError(m){document.getElementById('err-text').textContent='⚠ '+m;document.getElementById('err-banner').style.display='flex';}
 function hideError(){document.getElementById('err-banner').style.display='none';}
 
-function getFiltered(){let d=DATA;if(activeTv)d=d.filter(r=>r.tv===activeTv);if(activeRel)d=d.filter(r=>r.r===activeRel);if(activeMat)d=d.filter(r=>r.mt===activeMat);if(activeStat)d=d.filter(r=>r.s===activeStat);if(activeMes)d=d.filter(r=>monthKey(r.d)===activeMes);return d;}
+function getFiltered(){let d=DATA;if(activeTv)d=d.filter(r=>r.tv===activeTv);if(activeRel)d=d.filter(r=>r.r===activeRel);if(activeMat)d=d.filter(r=>r.mt===activeMat);if(activeStat)d=d.filter(r=>r.s===activeStat);if(activeMes)d=d.filter(r=>monthKey(r.d)===activeMes);if(activeDateIni)d=d.filter(r=>{const dt=_parseData(r.d);return dt&&dt>=activeDateIni;});if(activeDateFim)d=d.filter(r=>{const dt=_parseData(r.d);return dt&&dt<=activeDateFim;});return d;}
 function toggleTv(n){activeTv=activeTv===n?null:n;refresh();}
 function toggleRel(n){activeRel=activeRel===n?null:n;refresh();}
 function toggleMat(n){activeMat=activeMat===n?null:n;refresh();}
 function toggleStatus(s){activeStat=activeStat===s?null:s;refresh();}
 function toggleMes(m){activeMes=activeMes===m?null:m;refresh();}
-function clearFilters(){activeTv=null;activeRel=null;activeMat=null;activeStat=null;activeMes=null;refresh();}
+function clearFilters(){activeTv=null;activeRel=null;activeMat=null;activeStat=null;activeMes=null;activeDateIni=null;activeDateFim=null;document.getElementById('f-ini').value='';document.getElementById('f-fim').value='';refresh();}
 
 function buildChips(){
   const tvc={},rc={},mc={};
@@ -299,6 +313,7 @@ function renderCharts(d){
 
 function updateFilterUI(){
   const parts=[];
+  if(activeDateIni||activeDateFim){const fi=activeDateIni?activeDateIni.toLocaleDateString('pt-BR'):'início';const ff=activeDateFim?activeDateFim.toLocaleDateString('pt-BR'):'hoje';parts.push('Período: '+fi+' → '+ff);}
   if(activeTv)parts.push('Órgão: '+activeTv);
   if(activeRel)parts.push('Relator: '+shortN(activeRel));
   if(activeMat)parts.push('Matéria: '+activeMat.replace(/_/g,' '));
