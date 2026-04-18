@@ -92,6 +92,13 @@ _HEADERS = {
     "Connection": "keep-alive",
 }
 
+# tipos_doc que indicam acórdão/decisão — prioridade alta na dedup
+_TIPOS_ACORDAO = {'ATA DE SESSÃO', 'VOTOS CÍVEIS', 'VOTOS', 'ACÓRDÃO', 'DECISÃO'}
+
+def _prioridade_tipo(item):
+    """Retorna 1 se tipo_doc é acórdão/decisão, 0 caso contrário."""
+    return 1 if item.get('tipo_doc', '').upper() in _TIPOS_ACORDAO else 0
+
 # Códigos HTTP que disparam o fallback proxy → Playwright.
 # 400 entra aqui porque a API do DJEN retorna 400 quando o IP de datacenter
 # não tem sessão de browser — o Playwright (fetch nativo do browser) consegue
@@ -328,12 +335,14 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         return resultado
 
     # Múltiplos órgãos — uma requisição por órgão, resultados mesclados
-    vistos      = set()
+    vistos      = {}  # proc -> index in resultado
     resultado   = []
     # Nomes reais que a API retornou para cada órgão (aprendidos dos resultados)
     nomes_reais = set()
 
-    for oid in orgao_ids:
+    for i_orgao, oid in enumerate(orgao_ids):
+        if i_orgao > 0:
+            time.sleep(5)  # evita rate-limit do proxy após busca intensiva anterior
         itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
         nome_orgao = (
             itens[0].get('turma_djen') if itens
@@ -344,10 +353,14 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         novos = 0
         for item in itens:
             proc = item.get('PROCESSO', '')
-            if proc and proc not in vistos:
-                vistos.add(proc)
+            if not proc:
+                continue
+            if proc not in vistos:
+                vistos[proc] = len(resultado)
                 resultado.append(item)
                 novos += 1
+            elif _prioridade_tipo(item) > _prioridade_tipo(resultado[vistos[proc]]):
+                resultado[vistos[proc]] = item
         _log(f"   📋 DJEN {nome_orgao}: {len(itens)} publicação(ões), {novos} nova(s)")
 
     # Busca global complementar: captura publicações indexadas sob órgão-pai
@@ -440,14 +453,18 @@ def _buscar_orgao(nome_adv, data_ini, data_fim, orgao_id):
     """
     chunks = _chunks_mensais(data_ini, data_fim)
     if len(chunks) > 1:
-        vistos = set()
+        vistos = {}  # proc -> index in lista
         lista  = []
         for ini_c, fim_c in chunks:
             for item in _buscar_orgao_chunk(nome_adv, ini_c, fim_c, orgao_id):
                 proc = item.get('PROCESSO', '')
-                if proc and proc not in vistos:
-                    vistos.add(proc)
+                if not proc:
+                    continue
+                if proc not in vistos:
+                    vistos[proc] = len(lista)
                     lista.append(item)
+                elif _prioridade_tipo(item) > _prioridade_tipo(lista[vistos[proc]]):
+                    lista[vistos[proc]] = item
             time.sleep(0.5)
         return lista
     return _buscar_orgao_chunk(nome_adv, data_ini, data_fim, orgao_id)
