@@ -462,7 +462,9 @@ def _executar_pipeline(job_id, jobs, numeros, cpf, senha, api_key,
                         log(f"   ⚠️ Erro ao salvar checkpoint: {_e_cp}")
 
                     # Envia para Google Sheets (se configurado)
-                    if _SHEETS_OK and not linha.get("TIPO") in ("NÃO LOCALIZADO", "ERRO"):
+                    # Não insere se IA não classificou (STATUS vazio = todos provedores falharam)
+                    if _SHEETS_OK and not linha.get("TIPO") in ("NÃO LOCALIZADO", "ERRO") \
+                            and linha.get("STATUS DA DECISÃO"):
                         try:
                             _sheets_mod.inserir_na_planilha(
                                 [linha],
@@ -491,7 +493,8 @@ def _executar_pipeline(job_id, jobs, numeros, cpf, senha, api_key,
     return linhas
 
 
-def _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia, nome_advogado=""):
+def _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia, nome_advogado="",
+                   gerar_relatorio=True):
     """Gera relatório analítico e marca o job como concluído ou cancelado."""
     job = jobs[job_id]
 
@@ -506,11 +509,10 @@ def _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia, nome_advog
     ok = sum(1 for l in linhas if l.get("STATUS DA DECISÃO"))
     log(f"\n✅ {ok}/{len(linhas)} processos classificados.")
 
-    if usar_ia and api_key and ok >= 2:
+    if gerar_relatorio and usar_ia and api_key and ok >= 2:
         pct(97, "Gerando relatório analítico...")
         texto_rel = ia.gerar_relatorio(linhas, api_key, modelo_ia or ia.MODELO_PADRAO, log)
         if texto_rel:
-            # Mesmo padrão de nome do XLSX: RELATÓRIO - NOME - DD-MM-YYYY HH_MM.docx
             base_xlsx = os.path.basename(job.get('file', ''))
             nome_docx_base = base_xlsx.replace('.xlsx', '.docx') if base_xlsx else f"relatorio_{job_id}.docx"
             nome_docx = os.path.join(OUTPUT, nome_docx_base)
@@ -809,8 +811,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             modelo_ia, nome_advogado, usar_ia, relator_filtro,
         )
 
-        # 3. Finaliza (relatório + status)
-        _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia, nome_advogado=nome_advogado or "")
+        # 3. Finaliza sem relatório docx — resultados já vão ao Sheets
+        _finalizar_job(job_id, jobs, linhas, api_key, modelo_ia, usar_ia,
+                       nome_advogado=nome_advogado or "", gerar_relatorio=False)
 
     except Exception as e:
         job['status'] = 'error'
