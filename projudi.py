@@ -491,9 +491,11 @@ def _clicar_iplus(page, idx):
     """)
     novos = [l for l in hrefs_depois if l['href'] not in hrefs_antes]
     if novos:
-        href = novos[0]['href']
-        return href if href.startswith('http') else f"{BASE}{href}"
-    return ""
+        href      = novos[0]['href']
+        pdf_nome  = novos[0].get('texto', '')
+        url       = href if href.startswith('http') else f"{BASE}{href}"
+        return url, pdf_nome
+    return "", ""
 
 
 def _extrair_pdf(page, url_pdf, log):
@@ -602,28 +604,25 @@ def _extrair_data_e_transito(page):
 def _extrair_doc(page, evento, url_retorno, log):
     """Expande um evento (iPlus) e extrai o texto do documento vinculado."""
     nome_hint = ""
-    m_arq = re.search(r'[Aa]rquivo:\s*(.{3,120}?)(?:\s{2,}|\d{4}-\d{2}-\d{2}|$)', evento['texto'])
+    # Arquivo label (ex: "Petição Inicial", "Sentença") — para com " Ass." ou double-space ou data
+    m_arq = re.search(r'[Aa]rquivo:\s*(.{3,120}?)(?:\s{2,}|\s+Ass\.|\d{4}-\d{2}-\d{2}|$)', evento['texto'])
     if m_arq:
         nome_hint = m_arq.group(1).strip()
     elif len(evento['texto']) > 5:
-        nome_hint = evento['texto'][:100]
+        nome_hint = evento['texto'][:80]
 
-    # Extrai nome do PDF (ex: "1. PETICAO INICIAL PARCCREDPESS ... SANTOS.pdf")
-    # O link text do arquivo aparece no texto do evento e pode conter código de matéria
-    pdf_matches = re.findall(r'(\S[\w. \-]+\.pdf)', evento['texto'], re.IGNORECASE)
-    if pdf_matches:
-        pdf_nome = max(pdf_matches, key=len)
-        if len(pdf_nome) > 15 and pdf_nome.lower() != 'online.pdf':
-            if nome_hint and pdf_nome.lower() not in nome_hint.lower():
-                nome_hint = f"{nome_hint} | {pdf_nome}"
-            elif not nome_hint:
-                nome_hint = pdf_nome
-
-    url_doc = _clicar_iplus(page, evento['idx'])
+    url_doc, pdf_link_nome = _clicar_iplus(page, evento['idx'])
     if not url_doc:
         log("      ⚠️ Nenhum link novo ao expandir.")
         _clicar_aba(page, "Movimentações")
         return ""
+
+    # Enriquece nome_hint com o nome real do arquivo (ex: "PARCCREDPESS ... .pdf")
+    if pdf_link_nome and pdf_link_nome.lower() != 'online.pdf':
+        if nome_hint and pdf_link_nome.lower() not in nome_hint.lower():
+            nome_hint = f"{nome_hint} | {pdf_link_nome}"
+        elif not nome_hint:
+            nome_hint = pdf_link_nome
 
     if "arquivo.do" in url_doc:
         texto = _extrair_pdf(page, url_doc, log)
