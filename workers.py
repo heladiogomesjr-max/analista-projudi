@@ -313,6 +313,13 @@ def _processar_numero(page, numero, url_2g, url_1g, api_key, log, modelo_ia=None
     turma_vara              = dados["turma_vara"]
     relator_juiz            = dados["relator_juiz"]
     texto_acordao           = dados["texto_acordao"]
+
+    # Ignora Agravos de Instrumento: são recursos interlocutórios sem julgamento
+    # de mérito — não há condenação final a registrar
+    _cabecalho_acordao = texto_acordao[:600].upper()
+    if "AGRAVO DE INSTRUMENTO" in _cabecalho_acordao:
+        log("   ⏭️ Agravo de Instrumento — ignorado (sem julgamento de mérito).")
+        return {"_ignorado": True, "NÚMERO DO PROCESSO": numero}
     texto_acordao_embargos  = dados.get("texto_acordao_embargos", "")
     texto_sentenca          = dados["texto_sentenca"]
     texto_sentenca_embargos = dados.get("texto_sentenca_embargos", "")

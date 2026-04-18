@@ -722,14 +722,26 @@ def _extrair_movimentacoes(page, tipos, url_retorno, log):
 
             if not evento:
                 if tipo == "peticao_inicial" and eventos:
-                    # Exclui certidões e acórdãos/sentenças do fallback
-                    nomes_excluir = ARQUIVOS_DOC.get("acordao", []) + ARQUIVOS_DOC.get("sentenca", [])
-                    sem_excluidos = [e for e in eventos
-                                     if "certidão" not in e['texto'].lower()
-                                     and "certidao" not in e['texto'].lower()
-                                     and not any(a in nomes_excluir for a in e.get('arquivos', []))]
-                    evento = sem_excluidos[-1] if sem_excluidos else eventos[-1]
-                    log(f"      ⚠️ Petição inicial não encontrada por keywords. Usando evento mais antigo: {evento['texto'][:70]}")
+                    # 3ª prioridade: evento com Seq. 1 — no PROJUDI a petição inicial é
+                    # sempre o primeiro movimento (seq. 1) da tabela de movimentações.
+                    # O texto da TR começa com o número da sequência: "1 YYYY-MM-DD..."
+                    def _seq_num(e):
+                        m = re.match(r'^\s*(\d+)\s', e['texto'])
+                        return int(m.group(1)) if m else 9999
+                    evento_seq1 = min(eventos, key=_seq_num)
+                    if _seq_num(evento_seq1) == 1:
+                        evento = evento_seq1
+                        log(f"      ℹ️ Petição: usando Seq. 1 — {evento['texto'][:70]}")
+                    else:
+                        # fallback final: evento mais antigo sem certidão/emenda
+                        _excluir_kw = ("certidão", "certidao", "emenda", "despacho",
+                                       "ofício", "oficio", "mandado", "citação", "citacao")
+                        nomes_excluir = ARQUIVOS_DOC.get("acordao", []) + ARQUIVOS_DOC.get("sentenca", [])
+                        sem_excluidos = [e for e in eventos
+                                         if not any(kw in e['texto'].lower() for kw in _excluir_kw)
+                                         and not any(a in nomes_excluir for a in e.get('arquivos', []))]
+                        evento = sem_excluidos[-1] if sem_excluidos else eventos[-1]
+                        log(f"      ⚠️ Petição inicial não encontrada por keywords. Usando evento mais antigo: {evento['texto'][:70]}")
                 else:
                     log(f"      ⚠️ '{tipo}' não encontrado nos eventos.")
                     continue
@@ -1142,7 +1154,9 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                         )
                         texto_peticao = docs_pet.get("peticao_inicial", "")
             else:
-                log("   ⚠️ Link do 1º Grau não encontrado na página 2g.")
+                # Agravo de Instrumento (nº 4009...) e outros recursos de 2g sem origem
+                # no PROJUDI não têm link para o 1º Grau — é comportamento esperado.
+                log("   ⚠️ Link do 1º Grau não encontrado (pode ser Agravo de Instrumento ou recurso sem origem no PROJUDI).")
         except Exception as e:
             log(f"   ⚠️ 1º Grau (via 2g): {e}")
 
