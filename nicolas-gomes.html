@@ -290,6 +290,7 @@ function renderRelBars(d){
 }
 
 function renderTable(d){
+  d=d.slice().sort((a,b)=>{const da=_parseData(a.d),db=_parseData(b.d);if(!da&&!db)return 0;if(!da)return 1;if(!db)return -1;return db-da;});
   const shown=d.slice(0,300);
   document.getElementById('tbl-meta').textContent=d.length>300?`(mostrando 300 de ${d.length})`:`(${d.length})`;
   document.getElementById('tbl-body').innerHTML=shown.map(r=>{
