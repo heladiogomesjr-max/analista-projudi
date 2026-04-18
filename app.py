@@ -342,7 +342,7 @@ def _get_api_key(provider_selecionado, modelo_ia=""):
 # GESTÃO DE USUÁRIOS  (config.ini → secção [usuarios])
 # ══════════════════════════════════════════════════════════════
 def _listar_usuarios():
-    """Retorna lista de dicts {cpf, label} cadastrados no config.ini."""
+    """Retorna lista de dicts {cpf, label, nome, djen_nome} cadastrados no config.ini."""
     cfg = configparser.ConfigParser()
     cfg.read(os.path.join(PASTA, "config.ini"), encoding="utf-8")
     usuarios = []
@@ -353,13 +353,17 @@ def _listar_usuarios():
             label = cfg.get("usuarios", f"label_{i}", fallback=cpf)
             # Nome completo: tenta nome_i, depois seção do advogado, depois label
             nome  = cfg.get("usuarios", f"nome_{i}", fallback="")
+            adv_key = "_".join(label.strip().lower().split()[:2])
             if not nome:
-                adv_key = "_".join(label.strip().lower().split()[:2])
                 nome = cfg.get(adv_key, "nome", fallback="") if cfg.has_section(adv_key) else ""
             if not nome:
                 nome = label
+            # Nome para busca DJEN: campo djen_nome na seção do advogado, fallback para nome
+            djen_nome = cfg.get(adv_key, "djen_nome", fallback="") if cfg.has_section(adv_key) else ""
+            if not djen_nome:
+                djen_nome = nome
             if cpf:
-                usuarios.append({"cpf": cpf, "label": label, "nome": nome})
+                usuarios.append({"cpf": cpf, "label": label, "nome": nome, "djen_nome": djen_nome})
             i += 1
     return usuarios
 
@@ -921,6 +925,7 @@ window.addEventListener('load', function() {
         var opt = document.createElement('option');
         opt.value = u.cpf;
         opt.textContent = u.label || u.cpf;
+        opt.dataset.djenNome = u.djen_nome || u.nome || u.label || '';
         sel.appendChild(opt);
       });
     });
@@ -929,6 +934,12 @@ window.addEventListener('load', function() {
 
 function selecionarUsuario(sel, tab) {
   if (!sel.value) return;
+  // Auto-preenche nome_adv no formulário DJEN com o nome correto para a API
+  if (tab === 'djen') {
+    var opt = sel.options[sel.selectedIndex];
+    var nomeAdv = document.querySelector('[name="nome_adv"]');
+    if (nomeAdv && opt.dataset.djenNome) nomeAdv.value = opt.dataset.djenNome;
+  }
   fetch('/api/usuario_senha?cpf=' + encodeURIComponent(sel.value))
     .then(r => r.json())
     .then(function(d) {
