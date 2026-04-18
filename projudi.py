@@ -532,7 +532,12 @@ PALAVRAS_EVENTO = {
     "sentenca": ["arquivo: sentença", "arquivo: sentenças", "arquivo: sentenca",
                  "arquivo: sentenca de", "arquivo: sentencas",
                  "sentença", "sentenca", "arquivo: decisão", "arquivo: decisao",
-                 "arquivo: decisão monocrática", "arquivo: decisao monocratica"],
+                 "arquivo: decisão monocrática", "arquivo: decisao monocratica",
+                 # variações de indeferimento de petição inicial
+                 "indeferida a petição", "indeferida a peticao",
+                 "indeferimento da petição", "indeferimento da peticao",
+                 "petição indeferida", "peticao indeferida",
+                 "indeferida a inicial"],
 }
 
 # Fallback para sentença: eventos de decisão quando nenhum arquivo é identificado.
@@ -602,6 +607,17 @@ def _extrair_doc(page, evento, url_retorno, log):
         nome_hint = m_arq.group(1).strip()
     elif len(evento['texto']) > 5:
         nome_hint = evento['texto'][:100]
+
+    # Extrai nome do PDF (ex: "1. PETICAO INICIAL PARCCREDPESS ... SANTOS.pdf")
+    # O link text do arquivo aparece no texto do evento e pode conter código de matéria
+    pdf_matches = re.findall(r'(\S[\w. \-]+\.pdf)', evento['texto'], re.IGNORECASE)
+    if pdf_matches:
+        pdf_nome = max(pdf_matches, key=len)
+        if len(pdf_nome) > 15 and pdf_nome.lower() != 'online.pdf':
+            if nome_hint and pdf_nome.lower() not in nome_hint.lower():
+                nome_hint = f"{nome_hint} | {pdf_nome}"
+            elif not nome_hint:
+                nome_hint = pdf_nome
 
     url_doc = _clicar_iplus(page, evento['idx'])
     if not url_doc:
