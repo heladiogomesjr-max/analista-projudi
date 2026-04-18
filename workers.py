@@ -779,6 +779,27 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             log(f"⚠️ {antes - len(numeros)} processo(s) duplicado(s) removido(s) ({antes} → {len(numeros)}).")
         if batch_size:
             numeros = numeros[:batch_size]
+
+        # Filtra processos já existentes no Google Sheets
+        if _SHEETS_OK:
+            pct(6, "Verificando Google Sheets...")
+            log("📊 Verificando processos já analisados no Google Sheets...")
+            rows_existentes = _sheets_mod.ler_da_planilha(job['advogado_key'], log=log)
+            if rows_existentes:
+                _norm_p = lambda n: re.sub(r'[^0-9]', '', str(n))
+                existentes = {_norm_p(r['p']) for r in rows_existentes if r.get('p')}
+                antes_sh = len(numeros)
+                numeros = [n for n in numeros if _norm_p(n) not in existentes]
+                pulados = antes_sh - len(numeros)
+                if pulados:
+                    log(f"⏭️ {pulados} processo(s) já existem no Sheets — pulados.")
+                if not numeros:
+                    log("ℹ️ Todos os processos já estão na planilha. Nada a processar.")
+                    job['status'] = 'done'
+                    job['pct'] = 100
+                    job['subtitulo'] = "Todos os processos já analisados."
+                    return
+
         log(f"✅ {len(numeros)} processos para analisar.")
         pct(6, "Lista de processos pronta.")
 
