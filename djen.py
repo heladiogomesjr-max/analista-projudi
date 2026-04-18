@@ -344,6 +344,12 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         if i_orgao > 0:
             time.sleep(5)  # evita rate-limit do proxy após busca intensiva anterior
         itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
+        # Retry se o órgão retornou 0 e já tínhamos resultados do anterior
+        # (sinal de rate-limiting do proxy, não ausência real de dados)
+        if not itens and i_orgao > 0:
+            _log(f"   ⏳ DJEN {_NOMES_ORGAOS.get(oid, str(oid))}: 0 resultados — aguardando 25s e tentando novamente...")
+            time.sleep(25)
+            itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
         nome_orgao = (
             itens[0].get('turma_djen') if itens
             else _NOMES_ORGAOS.get(oid, str(oid))
@@ -377,7 +383,7 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
             proc  = item.get('PROCESSO', '')
             turma = item.get('turma_djen', '')
             if proc and proc not in vistos and turma in nomes_alvo:
-                vistos.add(proc)
+                vistos[proc] = len(resultado)
                 resultado.append(item)
                 complementares += 1
         if complementares:

@@ -787,7 +787,7 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             rows_existentes = _sheets_mod.ler_da_planilha(job['advogado_key'], log=log)
             if rows_existentes:
                 _norm_p = lambda n: re.sub(r'[^0-9]', '', str(n))
-                existentes = {_norm_p(r['p']) for r in rows_existentes if r.get('p')}
+                existentes = {_norm_p(r['p']) for r in rows_existentes if r.get('p') and r.get('s')}
                 antes_sh = len(numeros)
                 numeros = [n for n in numeros if _norm_p(n) not in existentes]
                 pulados = antes_sh - len(numeros)
