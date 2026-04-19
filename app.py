@@ -1808,7 +1808,7 @@ def iniciar_djen():
     turma            = request.form.get("turma", "0").strip()
     relator          = request.form.get("relator_filtro", "").strip()
     filtro_texto     = request.form.get("filtro_texto", "").strip()
-    filtro_tipo_doc  = request.form.get("filtro_tipo_doc") == "1"
+    filtro_tipo_doc  = True
     batch = 0
 
     global _job_ativo
@@ -2313,7 +2313,7 @@ def api_iniciar_djen():
     turma           = str(data.get('turma',           '0')).strip()
     relator         = str(data.get('relator',          '')).strip()
     filtro_texto    = str(data.get('filtro_texto',     '')).strip()
-    filtro_tipo_doc = bool(data.get('filtro_tipo_doc', False))
+    filtro_tipo_doc = True
     usar_ia         = bool(data.get('usar_ia',         True))
     modelo_ia     = str(data.get('modelo_ia',    ia_mod.MODELO_PADRAO)).strip() or ia_mod.MODELO_PADRAO
     nome_advogado = _carregar_config().get('nome_advogado', '')

@@ -53,8 +53,6 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 .btn-run:hover{background:#15603f}
 .btn-run:disabled{opacity:.5;cursor:default}
 .form-err{font-size:12px;color:#c0392b;background:#fdf0ee;padding:8px 12px;border-radius:6px;display:none;margin-top:4px}
-.orgao-chip{padding:3px 10px;border-radius:14px;border:1.5px solid #e0dfd8;background:#fff;cursor:pointer;font-size:11px;font-weight:500;color:#555;transition:all .15s;user-select:none}
-.orgao-chip.sel{background:#1a1a18;color:#f5f4f0;border-color:#1a1a18}
 .select-row{display:flex;gap:6px;align-items:center}
 .select-row select{flex:1}
 .btn-add{width:30px;height:30px;border-radius:7px;border:1.5px solid #e0dfd8;background:#fafaf7;color:#555;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0;transition:all .15s;display:flex;align-items:center;justify-content:center}
@@ -186,16 +184,8 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
         </div>
       </div>
       <div class="field">
-        <label>Órgãos julgadores (nenhum = todos)</label>
-        <div id="orgaos-list" style="display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#fafaf7;border-radius:7px;border:1.5px solid #e0dfd8"></div>
-      </div>
-      <div class="field">
         <label>Filtro por palavra-chave (opcional)</label>
         <input type="text" id="djen-filtro" placeholder="Ex: provido">
-      </div>
-      <div class="field" style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="djen-filtro-tipo" style="width:16px;height:16px;cursor:pointer">
-        <label for="djen-filtro-tipo" style="margin:0;cursor:pointer;font-size:13px">Apenas <strong>acórdãos</strong> <span style="color:#9ca3af;font-weight:400">(JUNTADA, COM/SEM JULGAMENTO DE MÉRITO…)</span></label>
       </div>
       <div class="err-msg" id="djen-err"></div>
       <button class="btn-run" onclick="iniciarDjen()">▶ Iniciar análise DJEN</button>
@@ -280,7 +270,7 @@ const SERVER = ''; // Vercel proxy — ver vercel.json rewrites
 // ════════════════════════════════════════════════════
 
 
-const ORGAOS_TJAM = [
+const ORGAOS_TJAM = [   // mantido apenas para compatibilidade com código legado
   { id: 69475, label: '1ª Turma Recursal' },
   { id: 69559, label: '2ª Turma Recursal' },
   { id: 69642, label: '3ª Turma Recursal' },
@@ -299,7 +289,7 @@ function _iniciarPolling() {
   _pollInterval = setInterval(atualizarJobs, 8000);
 }
 let USUARIOS = [];
-let orgaosSelecionados = new Set();
+const orgaosSelecionados = new Set();
 const ADV_LABELS = { luis_albert: 'LUIS ALBERT', nicolas_gomes: 'NICOLAS GOMES' };
 
 // ── AUTH ────────────────────────────────────────────
@@ -357,17 +347,6 @@ function mostrarApp(usuario) {
   badge.style.display = '';
 }
 
-// ── ÓRGÃOS ─────────────────────────────────────────
-function buildOrgaos() {
-  const el = document.getElementById('orgaos-list');
-  el.innerHTML = ORGAOS_TJAM.map(o =>
-    `<div class="orgao-chip" data-id="${o.id}" onclick="toggleOrgao(this,${o.id})">${o.label}</div>`
-  ).join('');
-}
-function toggleOrgao(el, id) {
-  if (orgaosSelecionados.has(id)) { orgaosSelecionados.delete(id); el.classList.remove('sel'); }
-  else { orgaosSelecionados.add(id); el.classList.add('sel'); }
-}
 
 // ── USUÁRIOS ────────────────────────────────────────
 async function carregarUsuarios() {
@@ -410,8 +389,7 @@ async function iniciarDjen() {
   const nome   = document.getElementById('djen-nome').value.trim();
   const ini    = document.getElementById('djen-ini').value;
   const fim    = document.getElementById('djen-fim').value;
-  const filtro     = document.getElementById('djen-filtro').value.trim();
-  const filtroTipo = document.getElementById('djen-filtro-tipo').checked;
+  const filtro = document.getElementById('djen-filtro').value.trim();
   const batch  = 0;
   err.style.display = 'none';
   if (!nome) { mostrarErr(err, 'Informe o nome do advogado.'); return; }
@@ -420,8 +398,7 @@ async function iniciarDjen() {
   const btn = document.querySelector('#tab-djen .btn-run');
   btn.disabled = true; btn.textContent = '⏳ Iniciando…';
   try {
-    const turmas = orgaosSelecionados.size > 0 ? [...orgaosSelecionados].join(',') : '0';
-    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, filtro_tipo_doc: filtroTipo, batch, turma: turmas });
+    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, filtro_tipo_doc: true, batch, turma: '0' });
     const json = await res.json();
     if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }, 2000); }
     else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }
@@ -618,7 +595,6 @@ function sanitize(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
   document.getElementById('djen-fim').value = hoje.toISOString().slice(0,10);
   document.getElementById('djen-ini').value = ini.toISOString().slice(0,10);
 
-  buildOrgaos();
   if (TOKEN) {
     try {
       const res = await api('/api/jobs');
