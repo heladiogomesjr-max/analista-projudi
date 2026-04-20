@@ -296,7 +296,10 @@ def _normalizar_item(i):
         i.get('textoPublicacao', '') or ''
     )
     nome_orgao = i.get('nomeOrgao') or i.get('orgao') or ''
-    tipo_doc   = i.get('tipoDocumento') or i.get('tipo_documento') or ''
+    # tipoComunicacao é o campo exibido no site e tem encoding correto;
+    # tipoDocumento pode chegar corrompido (ex: 'Ata de sesso' em vez de 'Ata de sessão')
+    tipo_doc   = (i.get('tipoComunicacao') or i.get('tipoDocumento')
+                  or i.get('tipo_documento') or '')
     return {
         'PROCESSO':   num_fmt,
         'turma_djen': str(nome_orgao).upper(),
