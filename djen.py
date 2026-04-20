@@ -338,13 +338,20 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         resultado_global = _buscar_orgao(nome_adv, data_ini, data_fim, None)
         _log(f"   📋 DJEN (todos os órgãos): {len(resultado_global)} publicação(ões)")
 
-        # Suplemento: busca específica por Turma Recursal para capturar ATAs
-        # Sleep inicial para deixar o rate-limit da busca global se dissipar
-        _TURMAS_RECURSAIS = [69475, 69559, 69642, 69560]
+        # Suplemento: busca por cada órgão de 2º grau para garantir ATAs.
+        # A API global (sem orgaoId) não indexa ATAs de Turmas Recursais nem
+        # de Câmaras Cíveis de forma consistente; elas só aparecem quando se
+        # filtra pelo orgaoId específico.
+        # Sleep inicial para deixar o rate-limit da busca global se dissipar.
+        _ORGAOS_2G = [
+            69475, 69559, 69642, 69560,   # Turmas Recursais 1ª–4ª
+            69474, 69470, 69466, 69476,   # Câmaras Cíveis + Reunidas
+            69469, 69467, 69484,          # Criminal, Pleno, Sec. Judiciária
+        ]
         vistos = {p['PROCESSO']: i for i, p in enumerate(resultado_global)}
         resultado = list(resultado_global)
         time.sleep(15)
-        for i_t, oid in enumerate(_TURMAS_RECURSAIS):
+        for i_t, oid in enumerate(_ORGAOS_2G):
             if i_t > 0:
                 time.sleep(10)
             itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
