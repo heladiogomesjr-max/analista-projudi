@@ -339,12 +339,14 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
         _log(f"   📋 DJEN (todos os órgãos): {len(resultado_global)} publicação(ões)")
 
         # Suplemento: busca específica por Turma Recursal para capturar ATAs
+        # Sleep inicial para deixar o rate-limit da busca global se dissipar
         _TURMAS_RECURSAIS = [69475, 69559, 69642, 69560]
         vistos = {p['PROCESSO']: i for i, p in enumerate(resultado_global)}
         resultado = list(resultado_global)
+        time.sleep(15)
         for i_t, oid in enumerate(_TURMAS_RECURSAIS):
             if i_t > 0:
-                time.sleep(5)
+                time.sleep(10)
             itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
             novos = 0
             for item in itens:
