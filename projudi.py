@@ -456,13 +456,43 @@ def _ler_tabela(page):
             return { subTextos, arquivos };
         }
 
+        function textoTr(tr) {
+            return tr ? (tr.innerText||tr.textContent||'').replace(/\\s+/g,' ').trim() : '';
+        }
+        function isJsOnly(t) {
+            return /^\\s*var\\s+aj_/.test(t) || t.length < 5;
+        }
+        // Busca o texto do evento no TR predecessor quando o TR atual só tem JS
+        function textoAnterior(tr) {
+            // 1. Irmãos anteriores no mesmo tbody
+            let prev = tr.previousElementSibling;
+            while (prev) {
+                if (prev.querySelector('a[href="javascript://nop/"]')) break;
+                const t = textoTr(prev);
+                if (t && !isJsOnly(t)) return t;
+                prev = prev.previousElementSibling;
+            }
+            // 2. Último TR do tbody anterior
+            const tbody = tr.closest('tbody');
+            const prevTbody = tbody ? tbody.previousElementSibling : null;
+            if (prevTbody && prevTbody.tagName === 'TBODY') {
+                const trs = Array.from(prevTbody.querySelectorAll('tr')).reverse();
+                for (const pt of trs) {
+                    if (pt.querySelector('a[href="javascript://nop/"]')) break;
+                    const t = textoTr(pt);
+                    if (t && !isJsOnly(t)) return t;
+                }
+            }
+            return '';
+        }
+
         return btns.map((a, idx) => {
             const tr = a.closest('tr');
-            let texto = tr
-                ? (tr.innerText||tr.textContent||'').replace(/\\s+/g,' ').trim()
-                : '';
+            let texto = textoTr(tr);
             let arquivos = [];
             if (tr) {
+                // Câmara Cível: botão i+ fica em TR separado do texto do evento
+                if (isJsOnly(texto)) texto = textoAnterior(tr);
                 const { subTextos, arquivos: arqs } = coletarSubLinhas(tr);
                 texto = (texto + ' ' + subTextos.join(' ')).trim().slice(0, 800);
                 arquivos = arqs;
@@ -530,7 +560,8 @@ ARQUIVOS_DOC = {
 
 # Palavras no TEXTO DO EVENTO — matching secundário quando não há sub-linhas com arquivo nomeado.
 PALAVRAS_EVENTO = {
-    "acordao":  ["juntada de acórdão", "juntada de acordao"],
+    "acordao":  ["juntada de acórdão", "juntada de acordao",
+                 "juntada de provimento"],  # Câmaras Cíveis usam "provimento"
     "sentenca": ["arquivo: sentença", "arquivo: sentenças", "arquivo: sentenca",
                  "arquivo: sentenca de", "arquivo: sentencas",
                  "sentença", "sentenca", "arquivo: decisão", "arquivo: decisao",
