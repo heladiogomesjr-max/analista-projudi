@@ -528,16 +528,10 @@ function renderJobs(lista) {
   }
 }
 
-function abrirLogPopup(job_id) {
+async function abrirLogPopup(job_id) {
   _logPopupJobId = job_id;
   document.getElementById('log-popup').style.display = 'flex';
-  const job = _lastJobs.find(j => j.job_id === job_id);
-  if (job) {
-    _atualizarPopupLogs(job);
-    // Na abertura, força scroll ao fim
-    const body = document.getElementById('log-popup-body');
-    body.scrollTop = body.scrollHeight;
-  }
+  await _buscarEAtualizarPopup(job_id, true);
 }
 
 function fecharLogPopup() {
@@ -545,16 +539,24 @@ function fecharLogPopup() {
   document.getElementById('log-popup').style.display = 'none';
 }
 
+async function _buscarEAtualizarPopup(job_id, forcaScroll = false) {
+  try {
+    const res = await api(`/api/progresso/${job_id}`);
+    if (!res.ok) return;
+    const dados = await res.json();
+    const body  = document.getElementById('log-popup-body');
+    const title = document.getElementById('log-popup-title');
+    const stLbl = { running:'Rodando', done:'Concluído', error:'Erro', cancelled:'Cancelado' }[dados.status] || dados.status;
+    title.textContent = `${job_id} — ${stLbl}`;
+    const logs = (dados.logs || []).map(l => `<div>${sanitize(l)}</div>`).join('');
+    const atBottom = forcaScroll || body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+    body.innerHTML = logs;
+    if (atBottom) body.scrollTop = body.scrollHeight;
+  } catch(e) {}
+}
+
 function _atualizarPopupLogs(job) {
-  const body  = document.getElementById('log-popup-body');
-  const title = document.getElementById('log-popup-title');
-  const stLbl = { running:'Rodando', done:'Concluído', error:'Erro', cancelled:'Cancelado' }[job.status] || job.status;
-  title.textContent = `${job.job_id} — ${stLbl}`;
-  const logs = (job.logs_tail || []).map(l => `<div>${sanitize(l)}</div>`).join('');
-  // Só rola ao fim se o usuário já estava no fim
-  const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
-  body.innerHTML = logs;
-  if (atBottom) body.scrollTop = body.scrollHeight;
+  if (_logPopupJobId === job.job_id) _buscarEAtualizarPopup(job.job_id);
 }
 
 async function pausar(job_id) {
