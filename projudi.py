@@ -685,7 +685,7 @@ def _extrair_doc(page, evento, url_retorno, log):
     return texto
 
 
-def _extrair_movimentacoes(page, tipos, url_retorno, log):
+def _extrair_movimentacoes(page, tipos, url_retorno, log, orgao=""):
     """
     Extrai documentos das movimentações do processo.
 
@@ -705,10 +705,15 @@ def _extrair_movimentacoes(page, tipos, url_retorno, log):
         log("      ⚠️ Tabela de movimentações vazia.")
         return resultado
 
+    orgao_up = orgao.upper()
+    _e_camara = 'CÂMARA' in orgao_up or 'CAMARA' in orgao_up or 'NÚCLEO' in orgao_up
+
     for tipo in tipos:
         if tipo in ("acordao", "sentenca"):
             nomes_arq = ARQUIVOS_DOC.get(tipo, [])
-            palavras  = PALAVRAS_EVENTO.get(tipo, [])
+            palavras  = list(PALAVRAS_EVENTO.get(tipo, []))
+            if tipo == "acordao" and not _e_camara:
+                palavras = [p for p in palavras if p != "juntada de provimento"]
 
             # 1ª prioridade: arquivo de nome correto na sub-linha
             candidatos = [e for e in eventos
@@ -1142,7 +1147,7 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
             if _clicar_aba(page, "Movimentações"):
                 data_decisao, transitado, texto_movimentos = _extrair_data_e_transito(page)
                 if extrair_textos:
-                    docs = _extrair_movimentacoes(page, ["acordao"], url_proc_2g, log)
+                    docs = _extrair_movimentacoes(page, ["acordao"], url_proc_2g, log, orgao=turma_vara)
                     texto_acordao          = docs.get("acordao", "")
                     texto_acordao_embargos = docs.get("acordao_embargos", "")
         except Exception as e:
@@ -1191,12 +1196,12 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                     if extrair_textos:
                         # Extrai sentença primeiro
                         docs_1g = _extrair_movimentacoes(
-                            page, ["sentenca"], url_1g_proc, log
+                            page, ["sentenca"], url_1g_proc, log, orgao=turma_vara
                         )
                         texto_sentenca          = docs_1g.get("sentenca", "")
                         texto_sentenca_embargos = docs_1g.get("sentenca_embargos", "")
                         docs_pet = _extrair_movimentacoes(
-                            page, ["peticao_inicial"], url_1g_proc, log
+                            page, ["peticao_inicial"], url_1g_proc, log, orgao=turma_vara
                         )
                         texto_peticao = docs_pet.get("peticao_inicial", "")
             else:
@@ -1251,12 +1256,12 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
                     if extrair_textos:
                         # Extrai sentença primeiro
                         docs_1g = _extrair_movimentacoes(
-                            page, ["sentenca"], url_proc_1g, log
+                            page, ["sentenca"], url_proc_1g, log, orgao=turma_vara
                         )
                         texto_sentenca          = docs_1g.get("sentenca", "")
                         texto_sentenca_embargos = docs_1g.get("sentenca_embargos", "")
                         docs_pet = _extrair_movimentacoes(
-                            page, ["peticao_inicial"], url_proc_1g, log
+                            page, ["peticao_inicial"], url_proc_1g, log, orgao=turma_vara
                         )
                         texto_peticao = docs_pet.get("peticao_inicial", "")
             except Exception as e:

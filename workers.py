@@ -733,10 +733,21 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         def _e_orgao_2g_pub(orgao):
             return 'TURMA' in orgao or 'CAMARA' in orgao or 'CÂMARA' in orgao
 
+        # Palavras no texto DJEN que indicam apenas agendamento, não decisão
+        _KW_EXCLUIR = (
+            'INCLUÍDO EM PAUTA', 'INCLUIDO EM PAUTA',
+            'SESSÃO VIRTUAL', 'SESSAO VIRTUAL',
+            'PAUTADO PARA JULGAMENTO',
+        )
+
         def _e_acordao_pub(p):
             """True se a publicação é acórdão/decisão de 2º grau."""
             td  = p.get('tipo_doc', '')    # já em .upper() (normalizado em djen.py)
             org = p.get('turma_djen', '')  # já em .upper()
+            texto_up = p.get('texto', '').upper()
+            # 0. Exclui publicações de agendamento (não são acórdãos)
+            if any(kw in texto_up for kw in _KW_EXCLUIR):
+                return False
             # 1. Ata de sessão das Turmas Recursais (TJAM 2026)
             if 'ATA DE SESS' in td:
                 return True
@@ -751,7 +762,6 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
                 if kw in td:
                     return not org or _e_orgao_2g_pub(org)
             # 5. Fallback: texto do corpo contém indicadores de acórdão
-            texto_up = p.get('texto', '').upper()
             return any(kw in texto_up for kw in _KW_TEXTO_ACORDAO)
 
         processos_djen = djen.buscar(nome_adv, data_ini, data_fim, turma or '0', log=log)
