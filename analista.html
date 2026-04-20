@@ -183,10 +183,6 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
           <input type="date" id="djen-fim">
         </div>
       </div>
-      <div class="field">
-        <label>Filtro por palavra-chave (opcional)</label>
-        <input type="text" id="djen-filtro" placeholder="Ex: provido">
-      </div>
       <div class="err-msg" id="djen-err"></div>
       <button class="btn-run" onclick="iniciarDjen()">▶ Iniciar análise DJEN</button>
     </div>
@@ -389,7 +385,6 @@ async function iniciarDjen() {
   const nome   = document.getElementById('djen-nome').value.trim();
   const ini    = document.getElementById('djen-ini').value;
   const fim    = document.getElementById('djen-fim').value;
-  const filtro = document.getElementById('djen-filtro').value.trim();
   const batch  = 0;
   err.style.display = 'none';
   if (!nome) { mostrarErr(err, 'Informe o nome do advogado.'); return; }
@@ -398,7 +393,7 @@ async function iniciarDjen() {
   const btn = document.querySelector('#tab-djen .btn-run');
   btn.disabled = true; btn.textContent = '⏳ Iniciando…';
   try {
-    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_texto: filtro, filtro_tipo_doc: true, batch, turma: '0' });
+    const res  = await api('/api/iniciar_djen', 'POST', { cpf, senha, nome_adv: nome, data_ini: ini, data_fim: fim, filtro_tipo_doc: true, batch, turma: '0' });
     const json = await res.json();
     if (json.ok) { btn.textContent = '✅ Iniciado!'; setTimeout(() => { btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }, 2000); }
     else { mostrarErr(err, json.error); btn.disabled=false; btn.textContent='▶ Iniciar análise DJEN'; }

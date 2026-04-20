@@ -820,14 +820,6 @@ FORM_HTML = """<!DOCTYPE html>
         <p style="font-size:.84rem;color:#6b7280;margin:0">Ao final da análise, a IA gerará automaticamente um relatório em <strong>.docx</strong> com padrões, tendências por relator, contradições entre julgamentos e recomendações estratégicas.</p>
       </div>
 
-      <div class="sec sec-gray">
-        <h3>🔍 Filtros de Resultado</h3>
-        <div class="fg">
-          <label class="lbl">Palavra-chave na publicação DJEN <small style="font-weight:400;color:#9ca3af">(opcional)</small></label>
-          <input type="text" name="filtro_texto" placeholder="Ex: indenização, provimento, improcedente…">
-        </div>
-      </div>
-
       <button type="submit" class="btn-submit djen">▶ Buscar no DJEN e Analisar</button>
     </form>
   </div>
@@ -1807,7 +1799,7 @@ def iniciar_djen():
     data_fim      = request.form.get("data_fim", "").strip()
     turma            = request.form.get("turma", "0").strip()
     relator          = request.form.get("relator_filtro", "").strip()
-    filtro_texto     = request.form.get("filtro_texto", "").strip()
+    filtro_texto     = ""
     filtro_tipo_doc  = True
     batch = 0
 
@@ -2312,7 +2304,7 @@ def api_iniciar_djen():
     data_fim      = str(data.get('data_fim',     '')).strip()
     turma           = str(data.get('turma',           '0')).strip()
     relator         = str(data.get('relator',          '')).strip()
-    filtro_texto    = str(data.get('filtro_texto',     '')).strip()
+    filtro_texto    = ""
     filtro_tipo_doc = True
     usar_ia         = bool(data.get('usar_ia',         True))
     modelo_ia     = str(data.get('modelo_ia',    ia_mod.MODELO_PADRAO)).strip() or ia_mod.MODELO_PADRAO
