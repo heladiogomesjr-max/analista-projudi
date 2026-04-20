@@ -331,10 +331,37 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
 
     orgao_ids = _resolver_orgaos(opcao_turma)
 
-    # Sem filtro de órgão — busca única
+    # Sem filtro de órgão — busca global + suplemento das Turmas Recursais
+    # A API não retorna ATAs das Turmas Recursais na busca global (sem orgaoId);
+    # as ATAs só aparecem quando se filtra pelo orgaoId específico.
     if not orgao_ids:
-        resultado = _buscar_orgao(nome_adv, data_ini, data_fim, None)
-        _log(f"   📋 DJEN (todos os órgãos): {len(resultado)} publicação(ões)")
+        resultado_global = _buscar_orgao(nome_adv, data_ini, data_fim, None)
+        _log(f"   📋 DJEN (todos os órgãos): {len(resultado_global)} publicação(ões)")
+
+        # Suplemento: busca específica por Turma Recursal para capturar ATAs
+        _TURMAS_RECURSAIS = [69475, 69559, 69642, 69560]
+        vistos = {p['PROCESSO']: i for i, p in enumerate(resultado_global)}
+        resultado = list(resultado_global)
+        for i_t, oid in enumerate(_TURMAS_RECURSAIS):
+            if i_t > 0:
+                time.sleep(5)
+            itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
+            novos = 0
+            for item in itens:
+                proc = item.get('PROCESSO', '')
+                if not proc:
+                    continue
+                if proc not in vistos:
+                    vistos[proc] = len(resultado)
+                    resultado.append(item)
+                    novos += 1
+                elif _prioridade_tipo(item) > _prioridade_tipo(resultado[vistos[proc]]):
+                    resultado[vistos[proc]] = item
+            if novos or itens:
+                nome = _NOMES_ORGAOS.get(oid, str(oid))
+                _log(f"   📋 DJEN {nome}: {len(itens)} publicação(ões), {novos} nova(s)")
+
+        _log(f"   📋 DJEN total: {len(resultado)} processo(s) únicos")
         return resultado
 
     # Múltiplos órgãos — uma requisição por órgão, resultados mesclados

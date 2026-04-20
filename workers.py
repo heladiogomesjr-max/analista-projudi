@@ -706,7 +706,7 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         # 1. Busca no DJEN
         pct(5, "Buscando no DJEN...")
         filtro_rel = f" | Relator: {relator_filtro}" if relator_filtro else ""
-        log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Turma: {turma or 'Todas'}{filtro_rel}")
+        log(f"DJEN: {nome_adv} | {data_ini} → {data_fim} | Órgão: {turma or 'Todos'}{filtro_rel}")
 
         # ── Filtro "apenas acórdãos" ──────────────────────────────────────────
         # Tipos que identificam acórdão/decisão de mérito sem precisar checar órgão
