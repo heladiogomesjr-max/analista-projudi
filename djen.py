@@ -355,6 +355,12 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
             if i_t > 0:
                 time.sleep(10)
             itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
+            # Retry quando retorna 0 — provável rate-limit após busca global
+            if not itens:
+                nome = _NOMES_ORGAOS.get(oid, str(oid))
+                _log(f"   ⏳ DJEN {nome}: 0 resultados — aguardando 30s e tentando novamente...")
+                time.sleep(30)
+                itens = _buscar_orgao(nome_adv, data_ini, data_fim, oid)
             novos = 0
             for item in itens:
                 proc = item.get('PROCESSO', '')
@@ -366,9 +372,11 @@ def buscar(nome_adv, data_ini, data_fim, opcao_turma, log=None):
                     novos += 1
                 elif _prioridade_tipo(item) > _prioridade_tipo(resultado[vistos[proc]]):
                     resultado[vistos[proc]] = item
+            nome = _NOMES_ORGAOS.get(oid, str(oid))
             if novos or itens:
-                nome = _NOMES_ORGAOS.get(oid, str(oid))
                 _log(f"   📋 DJEN {nome}: {len(itens)} publicação(ões), {novos} nova(s)")
+            else:
+                _log(f"   📋 DJEN {nome}: 0 publicação(ões) (pode ser genuíno ou rate-limit)")
 
         _log(f"   📋 DJEN total: {len(resultado)} processo(s) únicos")
         return resultado
