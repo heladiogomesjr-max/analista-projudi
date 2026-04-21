@@ -141,6 +141,11 @@ function doPost(e) {
     var ss = SpreadsheetApp.openById(sheetId);
     _migrarNomesAbas(ss);
 
+    // Rejeita abas que não sejam Turma/Câmara (2º grau)
+    if (!_ehOrgao2g(tab)) {
+      return ok({ inseridos: 0, duplicatas: 0, tab: tab, aviso: 'aba ignorada (não é Turma/Câmara)' });
+    }
+
     var ws = ss.getSheetByName(tab);
 
     // Cria a aba se não existir

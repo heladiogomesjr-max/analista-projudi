@@ -470,7 +470,11 @@ def _executar_pipeline(job_id, jobs, numeros, cpf, senha, api_key,
 
                     # Envia para Google Sheets (se configurado)
                     # Não insere se IA não classificou (STATUS vazio = todos provedores falharam)
-                    if _SHEETS_OK and not linha.get("TIPO") in ("NÃO LOCALIZADO", "ERRO") \
+                    # Só envia para abas de Turma/Câmara (2º grau) — Varas são ignoradas
+                    _tv = (linha.get("TURMA/VARA") or "").upper()
+                    _eh_2g = "TURMA" in _tv or "CÂMARA" in _tv
+                    if _SHEETS_OK and _eh_2g \
+                            and not linha.get("TIPO") in ("NÃO LOCALIZADO", "ERRO") \
                             and linha.get("STATUS DA DECISÃO"):
                         try:
                             _sheets_mod.inserir_na_planilha(
