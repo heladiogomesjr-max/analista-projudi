@@ -775,6 +775,13 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             job['error']  = "Nenhum processo encontrado no DJEN com esses parâmetros."
             return
 
+        # Remove Agravos (Instrumento, Interno, Regimental) — não são objeto desta análise
+        _antes_agravo = len(processos_djen)
+        processos_djen = [p for p in processos_djen if 'AGRAVO' not in p.get('classe', '')]
+        _n_agravos = _antes_agravo - len(processos_djen)
+        if _n_agravos:
+            log(f"   ⏭️ {_n_agravos} Agravo(s) excluídos pelo campo 'nomeClasse' do DJEN.")
+
         # Filtro por palavra-chave no texto da publicação
         if filtro_texto:
             ft = filtro_texto.lower()

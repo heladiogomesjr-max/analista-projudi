@@ -300,12 +300,14 @@ def _normalizar_item(i):
     # tipoDocumento pode chegar corrompido (ex: 'Ata de sesso' em vez de 'Ata de sessão')
     tipo_doc   = (i.get('tipoComunicacao') or i.get('tipoDocumento')
                   or i.get('tipo_documento') or '')
+    classe     = i.get('nomeClasse') or i.get('classe') or ''
     return {
         'PROCESSO':   num_fmt,
         'turma_djen': str(nome_orgao).upper(),
         'data_pub':   data_fmt,
         'texto':      texto_pub,
         'tipo_doc':   str(tipo_doc).upper(),
+        'classe':     str(classe).upper(),
     }
 
 
