@@ -728,6 +728,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             'ACORDAM', 'RECURSO CONHECIDO', 'NEGADO PROVIMENTO',
             'DADO PROVIMENTO', 'RECURSO PROVIDO', 'RECURSO IMPROVIDO',
             'RECURSO DESPROVIDO', 'SENTENÇA ANULADA', 'ACORDO HOMOLOGADO',
+            # Câmaras Cíveis: intimação sempre referencia o evento de juntada
+            'JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
+            'JUNTADA DE PROVIMENTO',
         )
 
         def _e_orgao_2g_pub(orgao):
@@ -749,8 +752,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             if any(kw in texto_up for kw in _KW_EXCLUIR):
                 return False
             # 1. Ata de sessão das Turmas Recursais (TJAM 2026)
+            # Câmaras Cíveis não usam ATA como veículo de acórdão — só Turmas
             if 'ATA DE SESS' in td:
-                return True
+                return 'TURMA' in org
             # 2. Votos das Câmaras Cíveis/Criminais
             if 'VOTOS' in td:
                 return True
