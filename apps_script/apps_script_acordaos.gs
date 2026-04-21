@@ -70,8 +70,28 @@ function _migrarNomesAbas(ss) {
 
 // ── LEITURA (GET) ─────────────────────────────────────────────
 function doGet(e) {
-  var adv     = normalizar(e && e.parameter ? e.parameter.adv : 'LUIS_ALBERT');
+  var params  = e && e.parameter ? e.parameter : {};
+  var adv     = normalizar(params.adv || 'LUIS_ALBERT');
   var sheetId = ADVOGADOS[adv];
+
+  // Limpeza: remove abas de Vara/JE (não são Turma/Câmara)
+  if (params.action === 'cleanup') {
+    try {
+      if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
+      var ss       = SpreadsheetApp.openById(sheetId);
+      var removidas = [];
+      ss.getSheets().forEach(function(ws) {
+        var nome = ws.getName();
+        if (ABAS_SISTEMA.indexOf(nome) !== -1) return;
+        if (_ehOrgao2g(nome)) return;
+        ss.deleteSheet(ws);
+        removidas.push(nome);
+      });
+      return ok({ removidas: removidas, total: removidas.length });
+    } catch (err) {
+      return erro(err.message);
+    }
+  }
 
   try {
     if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
