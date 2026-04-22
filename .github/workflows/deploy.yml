@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-vm:
+    name: VM Oracle Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 129.146.135.39
+          username: opc
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/analista-projudi
+            sudo git pull origin main
+            sudo systemctl restart analista-projudi
+
+  deploy-apps-script:
+    name: Google Apps Script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar clasp
+        run: npm install -g @google/clasp
+      - name: Autenticar clasp
+        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+      - name: Push código
+        working-directory: apps_script
+        run: clasp push --force
+      - name: Criar nova versão
+        working-directory: apps_script
+        run: |
+          clasp deploy \
+            --deploymentId "AKfycbyS6-Zz8aNk4OOeLPfiwI8NdUv7yfvlm-hCoxNQ5-t2cHS6a35ICZB-C_uAJxePxYjukQ" \
+            --description "deploy auto $(date +'%Y-%m-%d %H:%M')"
