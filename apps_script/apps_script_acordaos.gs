@@ -56,6 +56,20 @@ function _ehOrgao2g(nome) {
 }
 
 
+// ── LIMPEZA DE ABAS ───────────────────────────────────────────
+function _limparAbas(ss) {
+  var removidas = [];
+  ss.getSheets().forEach(function(ws) {
+    var nome = ws.getName();
+    if (ABAS_SISTEMA.indexOf(nome) !== -1) return;
+    if (_ehOrgao2g(nome)) return;
+    ss.deleteSheet(ws);
+    removidas.push(nome);
+  });
+  return removidas;
+}
+
+
 // ── MIGRAÇÃO DE NOMES ─────────────────────────────────────────
 function _migrarNomesAbas(ss) {
   if (!ss) return;
@@ -78,15 +92,8 @@ function doGet(e) {
   if (params.action === 'cleanup') {
     try {
       if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
-      var ss       = SpreadsheetApp.openById(sheetId);
-      var removidas = [];
-      ss.getSheets().forEach(function(ws) {
-        var nome = ws.getName();
-        if (ABAS_SISTEMA.indexOf(nome) !== -1) return;
-        if (_ehOrgao2g(nome)) return;
-        ss.deleteSheet(ws);
-        removidas.push(nome);
-      });
+      var ss        = SpreadsheetApp.openById(sheetId);
+      var removidas = _limparAbas(ss);
       return ok({ removidas: removidas, total: removidas.length });
     } catch (err) {
       return erro(err.message);
@@ -160,6 +167,7 @@ function doPost(e) {
 
     var ss = SpreadsheetApp.openById(sheetId);
     _migrarNomesAbas(ss);
+    _limparAbas(ss);
 
     // Rejeita abas que não sejam Turma/Câmara (2º grau)
     if (!_ehOrgao2g(tab)) {
