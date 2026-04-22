@@ -857,9 +857,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
 # ══════════════════════════════════════════════════════════════
 # WORKER DISTRIBUIÇÕES 2G
 # ══════════════════════════════════════════════════════════════
-def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key, nome_advogado=None):
+def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
+                                 nome_advogado=None, data_ini=None, data_fim=None):
     """Worker: extrai processos recursais ativos do PROJUDI e envia para Google Sheets."""
-    from datetime import datetime
     job  = jobs[job_id]
     _t0  = time.time()
 
@@ -889,7 +889,10 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key, nome_adv
                     return
 
                 pct(35, "Extraindo processos ativos...")
-                processos = projudi.buscar_processos_ativos_2g(page, url_dist, log)
+                processos = projudi.buscar_processos_ativos_2g(
+                    page, url_dist, log,
+                    data_ini=data_ini, data_fim=data_fim,
+                )
             finally:
                 try:
                     browser.close()

@@ -2437,9 +2437,11 @@ def api_iniciar_reanalise():
 def api_iniciar_distribuicoes():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
-    data  = request.get_json(force=True, silent=True) or {}
-    cpf   = str(data.get('cpf',   '')).strip()
-    senha = str(data.get('senha', '')).strip()
+    data      = request.get_json(force=True, silent=True) or {}
+    cpf       = str(data.get('cpf',      '')).strip()
+    senha     = str(data.get('senha',    '')).strip()
+    data_ini  = str(data.get('data_ini', '')).strip() or None
+    data_fim  = str(data.get('data_fim', '')).strip() or None
     if not senha or senha == 'undefined':
         senha = _get_senha_usuario(cpf)
     if not cpf:
@@ -2463,6 +2465,7 @@ def api_iniciar_distribuicoes():
     threading.Thread(
         target=workers.processar_job_distribuicoes,
         args=(job_id, jobs, cpf, senha, advogado_key, nome_advogado),
+        kwargs={'data_ini': data_ini, 'data_fim': data_fim},
         daemon=True,
     ).start()
     return jsonify({'ok': True, 'job_id': job_id})

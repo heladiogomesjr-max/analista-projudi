@@ -92,7 +92,11 @@ header .back:hover{color:#f5f4f0}
       <select id="filtroTurma" onchange="aplicarFiltros()">
         <option value="">Todas as Turmas/Câmaras</option>
       </select>
-      <input type="text" id="filtroBusca" placeholder="Buscar processo ou relator..." oninput="aplicarFiltros()" style="width:220px">
+      <input type="text" id="filtroBusca" placeholder="Buscar processo ou relator..." oninput="aplicarFiltros()" style="width:200px">
+      <label style="font-size:11px;color:#888;font-weight:600">DE</label>
+      <input type="date" id="dataIni" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+      <label style="font-size:11px;color:#888;font-weight:600">ATÉ</label>
+      <input type="date" id="dataFim" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
       <button class="btn btn-primary" id="btnAtualizar" onclick="iniciarAtualizacao()">⟳ Atualizar agora</button>
       <span class="last-update" id="lastUpdate"></span>
     </div>
@@ -296,10 +300,13 @@ async function iniciarAtualizacao() {
   document.getElementById('progressWrap').style.display = 'block';
 
   try {
+    const fmtData = v => v ? v.split('-').reverse().join('/') : null; // yyyy-MM-dd → dd/MM/yyyy
+    const data_ini = fmtData(document.getElementById('dataIni').value);
+    const data_fim = fmtData(document.getElementById('dataFim').value);
     const r = await fetch(API + '/iniciar_distribuicoes', {
       method: 'POST',
       headers: _headers(),
-      body: JSON.stringify({cpf})
+      body: JSON.stringify({cpf, data_ini, data_fim})
     });
     const j = await r.json();
     if (j.ok) {

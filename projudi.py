@@ -1425,13 +1425,37 @@ def _obter_total_paginas(page):
         return 1
 
 
-def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
-    """Scrapa todos os processos recursais ativos ordenados por data de distribuição DESC."""
+def _parse_data_dist(s):
+    """Converte dd/MM/yyyy para date, ou None se inválido."""
+    if not s:
+        return None
+    try:
+        from datetime import date as _date
+        p = s.strip().split('/')
+        return _date(int(p[2]), int(p[1]), int(p[0]))
+    except Exception:
+        return None
+
+
+def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
+                                data_ini=None, data_fim=None):
+    """
+    Scrapa processos recursais ativos ordenados por data de distribuição DESC.
+    data_ini / data_fim: strings 'dd/MM/yyyy' para filtrar o período.
+    Como a ordem é DESC, encerra a paginação assim que todas as datas da
+    página ficam anteriores a data_ini (não há mais nada no intervalo).
+    """
     if not url_dist:
         log("   ❌ URL de distribuições não fornecida.")
         return []
 
-    log("📋 Carregando página de distribuições 2º grau...")
+    _d_ini = _parse_data_dist(data_ini)
+    _d_fim = _parse_data_dist(data_fim)
+    periodo = ""
+    if data_ini or data_fim:
+        periodo = f" | Período: {data_ini or '...'} → {data_fim or '...'}"
+    log(f"📋 Carregando página de distribuições 2º grau{periodo}...")
+
     try:
         page.goto(url_dist)
         try:
@@ -1442,22 +1466,36 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
         log(f"   ❌ Falha ao navegar: {e}")
         return []
 
-    log("   🔃 Ordenando por data de distribuição DESC (mais recentes primeiro)...")
+    log("   🔃 Aplicando filtros e ordenando por data DESC...")
     try:
-        page.evaluate("""() => {
+        # Nomes comuns do campo de data no PROJUDI/PJE para Struts forms
+        _CAMPOS_INI = ['dataDistribuicaoInicio', 'dtDistribuicaoInicio',
+                       'periodoInicio', 'ativoDataDistribuicaoInicio',
+                       'ativoDataIni', 'dataIni']
+        _CAMPOS_FIM = ['dataDistribuicaoFim', 'dtDistribuicaoFim',
+                       'periodoFim', 'ativoDataDistribuicaoFim',
+                       'ativoDataFim', 'dataFim']
+        ini_js = data_ini or ''
+        fim_js = data_fim or ''
+        campos_ini_js = str(_CAMPOS_INI)
+        campos_fim_js = str(_CAMPOS_FIM)
+        page.evaluate(f"""() => {{
             var f = document.forms['recursoBuscaForm'];
             if (!f) return;
-            try { f['ativosPageNumber'].value = '1'; } catch(e) {}
-            try { f['ativosSortColumn'].value = 'r.dataDistribuicao'; } catch(e) {}
-            try { f['ativosSortOrder'].value = 'DESC'; } catch(e) {}
+            try {{ f['ativosPageNumber'].value = '1'; }} catch(e) {{}}
+            try {{ f['ativosSortColumn'].value = 'r.dataDistribuicao'; }} catch(e) {{}}
+            try {{ f['ativosSortOrder'].value = 'DESC'; }} catch(e) {{}}
+            var ini = '{ini_js}', fim = '{fim_js}';
+            if (ini) {campos_ini_js}.forEach(function(n){{ try{{f[n].value=ini;}}catch(e){{}} }});
+            if (fim) {campos_fim_js}.forEach(function(n){{ try{{f[n].value=fim;}}catch(e){{}} }});
             f.submit();
-        }""")
+        }}""")
         try:
             page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
     except Exception as e:
-        log(f"   ⚠️ Não foi possível ordenar ({e}). Extraindo na ordem atual.")
+        log(f"   ⚠️ Não foi possível aplicar filtros ({e}). Extraindo na ordem atual.")
 
     processos = []
     pagina = 1
@@ -1478,14 +1516,30 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
             log(f"   ⚠️ Página {pagina}: nenhum processo extraído — encerrando.")
             break
 
+        # Filtro de data: aplica data_fim (remove futuros) e detecta saída do intervalo
+        if _d_fim or _d_ini:
+            filtrados = []
+            passou_do_intervalo = False
+            for p in novos:
+                d = _parse_data_dist(p.get('DATA DE DISTRIBUIÇÃO', ''))
+                if _d_fim and d and d > _d_fim:
+                    continue                    # mais novo que fim — pula
+                if _d_ini and d and d < _d_ini:
+                    passou_do_intervalo = True  # mais antigo que ini — para paginação
+                    continue
+                filtrados.append(p)
+            novos = filtrados
+            if passou_do_intervalo:
+                processos.extend(novos)
+                log(f"   🛑 Data anterior a {data_ini} encontrada — encerrando busca.")
+                break
+
         processos.extend(novos)
 
         # Na primeira página descobre o total de páginas pelos links de paginação
         if total_paginas is None:
             total_paginas = min(_obter_total_paginas(page), max_paginas)
-            log(f"   📄 Página {pagina}/{total_paginas}: {len(novos)} processo(s) | Total: {len(processos)}")
-        else:
-            log(f"   📄 Página {pagina}/{total_paginas}: {len(novos)} processo(s) | Total: {len(processos)}")
+        log(f"   📄 Página {pagina}/{total_paginas or '?'}: {len(novos)} processo(s) | Total: {len(processos)}")
 
         if pagina >= (total_paginas or 1):
             break
