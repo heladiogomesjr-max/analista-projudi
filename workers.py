@@ -755,10 +755,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             # 0. Exclui publicações de agendamento (não são acórdãos)
             if any(kw in texto_up for kw in _KW_EXCLUIR):
                 return False
-            # 1. Ata de sessão das Turmas Recursais (TJAM 2026)
-            # Câmaras Cíveis não usam ATA como veículo de acórdão — só Turmas
+            # 1. Ata de sessão — Turmas Recursais e Câmaras Cíveis (TJAM 2026)
             if 'ATA DE SESS' in td:
-                return 'TURMA' in org
+                return 'TURMA' in org or 'CÂMARA' in org or 'CAMARA' in org
             # 2. Votos das Câmaras Cíveis/Criminais
             if 'VOTOS' in td:
                 return True
