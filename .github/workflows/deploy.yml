@@ -32,11 +32,16 @@ jobs:
         with:
           node-version: '20'
       - name: Instalar clasp
-        run: npm install -g @google/clasp@3.3.0
+        run: |
+          npm install -g @google/clasp
+          echo "Versão instalada: $(clasp --version)"
       - name: Autenticar clasp
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-        run: echo "$CLASPRC_JSON" > ~/.clasprc.json
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+          echo "Auth escrita em ~/.clasprc.json"
+          cat ~/.clasprc.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('JSON válido, chaves:', list(d.keys()))"
       - name: Push código
         working-directory: apps_script
         run: clasp push --force
