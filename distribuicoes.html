@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Distribuições 2º Grau — PROJUDI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;display:flex;flex-direction:column}
+header{background:#1a1a18;color:#f5f4f0;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header .title h1{font-size:15px;font-weight:600;letter-spacing:.03em}
+header .title p{font-size:11px;color:#888;margin-top:2px}
+header .back{font-size:12px;color:#888;text-decoration:none;white-space:nowrap}
+header .back:hover{color:#f5f4f0}
+.main{flex:1;padding:28px 24px;max-width:1200px;margin:0 auto;width:100%}
+
+/* Login */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:60vh}
+.login-box{background:#fff;border:1px solid #e8e7e3;border-radius:12px;padding:36px 32px;width:100%;max-width:360px}
+.login-box h2{font-size:15px;font-weight:700;margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.field input{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none}
+.field input:focus{border-color:#1a7a55}
+.btn-login{width:100%;background:#1a1a18;color:#f5f4f0;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.btn-login:hover{background:#333}
+.login-err{font-size:12px;color:#c0392b;margin-top:10px;text-align:center}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.toolbar select,.toolbar input[type=text]{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fff;outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:#1a7a55}
+.btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-primary{background:#1a1a18;color:#f5f4f0}
+.btn-primary:hover{background:#333}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed}
+.btn-outline{background:#fff;color:#1a1a18;border:1px solid #ddd}
+.btn-outline:hover{border-color:#1a7a55;color:#1a7a55}
+.last-update{font-size:11px;color:#999;margin-left:auto}
+
+/* Progress */
+.progress-bar{height:4px;background:#e8e7e3;border-radius:2px;overflow:hidden;margin-bottom:20px}
+.progress-fill{height:100%;background:#1a7a55;border-radius:2px;transition:width .3s}
+.status-msg{font-size:12px;color:#666;margin-bottom:16px}
+
+/* Stats */
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.stat-card{background:#fff;border:1px solid #e8e7e3;border-radius:10px;padding:14px 20px;min-width:140px}
+.stat-card .val{font-size:24px;font-weight:700;color:#1a1a18}
+.stat-card .lbl{font-size:11px;color:#999;margin-top:3px}
+
+/* Table */
+.table-wrap{background:#fff;border:1px solid #e8e7e3;border-radius:12px;overflow:hidden}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:12px}
+.table-wrap th{background:#1a1a18;color:#f5f4f0;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap}
+.table-wrap td{padding:9px 12px;border-bottom:1px solid #f0efeb;vertical-align:top}
+.table-wrap tr:last-child td{border-bottom:none}
+.table-wrap tr:hover td{background:#fafaf8}
+.badge-novo{display:inline-block;background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px}
+.proc-link{font-family:monospace;font-size:11px;color:#1a7a55;cursor:pointer;text-decoration:underline}
+.empty{text-align:center;color:#bbb;padding:48px 24px;font-size:13px}
+.turma-badge{display:inline-block;background:#f0f4ff;color:#1e40af;font-size:10px;padding:2px 8px;border-radius:12px;white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>DISTRIBUIÇÕES 2º GRAU — PROJUDI</h1>
+    <p>Processos recursais ativos • Atualização automática às 00:05</p>
+  </div>
+  <a class="back" href="/">← Dashboard</a>
+</header>
+
+<div class="main" id="app">
+  <!-- Login -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-box">
+      <h2>Acesso Restrito</h2>
+      <div class="field"><label>Usuário</label><input id="usuario" type="text" autocomplete="username"></div>
+      <div class="field"><label>Senha</label><input id="senha" type="password" autocomplete="current-password"></div>
+      <button class="btn-login" onclick="fazerLogin()">Entrar</button>
+      <div class="login-err" id="loginErr"></div>
+    </div>
+  </div>
+
+  <!-- Conteúdo principal -->
+  <div id="conteudo" style="display:none">
+    <div class="toolbar">
+      <select id="selAdv" onchange="trocarAdvogado()">
+        <option value="">Carregando...</option>
+      </select>
+      <select id="filtroTurma" onchange="aplicarFiltros()">
+        <option value="">Todas as Turmas/Câmaras</option>
+      </select>
+      <input type="text" id="filtroBusca" placeholder="Buscar processo ou relator..." oninput="aplicarFiltros()" style="width:220px">
+      <button class="btn btn-primary" id="btnAtualizar" onclick="iniciarAtualizacao()">⟳ Atualizar agora</button>
+      <span class="last-update" id="lastUpdate"></span>
+    </div>
+
+    <div id="progressWrap" style="display:none">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="status-msg" id="statusMsg">Aguardando...</div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nº DO PROCESSO</th>
+            <th>DATA DE DISTRIBUIÇÃO</th>
+            <th>TURMA/CÂMARA</th>
+            <th>RELATOR</th>
+            <th>CLASSE</th>
+            <th>PARTES</th>
+            <th>CAPTURA</th>
+          </tr>
+        </thead>
+        <tbody id="tabela"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">Nenhum processo encontrado.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let token = localStorage.getItem('analista_token') || '';
+let _dados = [];
+let _jobId = null;
+let _pollTimer = null;
+
+// ── AUTH ─────────────────────────────────────────────────────
+async function fazerLogin() {
+  const u = document.getElementById('usuario').value.trim();
+  const s = document.getElementById('senha').value.trim();
+  if (!u || !s) return;
+  try {
+    const r = await fetch(API + '/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({usuario: u, senha: s})
+    });
+    const j = await r.json();
+    if (j.token) {
+      token = j.token;
+      localStorage.setItem('analista_token', token);
+      mostrarConteudo();
+    } else {
+      document.getElementById('loginErr').textContent = j.error || 'Credenciais inválidas.';
+    }
+  } catch(e) {
+    document.getElementById('loginErr').textContent = 'Erro de conexão.';
+  }
+}
+document.getElementById('senha').addEventListener('keydown', e => { if (e.key === 'Enter') fazerLogin(); });
+
+function _headers() {
+  return {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+async function mostrarConteudo() {
+  document.getElementById('loginWrap').style.display  = 'none';
+  document.getElementById('conteudo').style.display   = 'block';
+  await carregarAdvogados();
+}
+
+async function carregarAdvogados() {
+  try {
+    const r = await fetch(API + '/usuarios', {headers: _headers()});
+    const j = await r.json();
+    const sel = document.getElementById('selAdv');
+    sel.innerHTML = '';
+    (j.usuarios || j || []).forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = (u.label || u.cpf).toLowerCase().replace(/ /g,'_');
+      opt.textContent = u.nome || u.label || u.cpf;
+      sel.appendChild(opt);
+    });
+    if (sel.options.length) await carregarDados();
+  } catch(e) { console.error(e); }
+}
+
+function trocarAdvogado() { carregarDados(); }
+
+async function carregarDados() {
+  const adv = document.getElementById('selAdv').value;
+  if (!adv) return;
+  try {
+    const r = await fetch(`${API}/distribuicoes?adv=${encodeURIComponent(adv)}`, {headers: _headers()});
+    const j = await r.json();
+    if (j.ok) {
+      _dados = j.data || [];
+      if (j.updatedAt) document.getElementById('lastUpdate').textContent =
+        'Atualizado: ' + new Date(j.updatedAt).toLocaleString('pt-BR');
+      popularFiltroTurma();
+      renderTabela(_dados);
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ── FILTROS ──────────────────────────────────────────────────
+function popularFiltroTurma() {
+  const turmas = [...new Set(_dados.map(d => d['TURMA/CÂMARA'] || '').filter(Boolean))].sort();
+  const sel = document.getElementById('filtroTurma');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todas as Turmas/Câmaras</option>';
+  turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    if (t === atual) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function aplicarFiltros() {
+  const turma  = document.getElementById('filtroTurma').value.toLowerCase();
+  const busca  = document.getElementById('filtroBusca').value.toLowerCase();
+  const filtrado = _dados.filter(d => {
+    if (turma && !(d['TURMA/CÂMARA'] || '').toLowerCase().includes(turma)) return false;
+    if (busca) {
+      const txt = [d['NÚMERO DO PROCESSO'],d['RELATOR'],d['PARTES'],d['CLASSE']].join(' ').toLowerCase();
+      if (!txt.includes(busca)) return false;
+    }
+    return true;
+  });
+  renderTabela(filtrado);
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function _isNovo(captura) {
+  if (!captura) return false;
+  try {
+    const parts = captura.split(' ')[0].split('/');
+    const d = new Date(+parts[2], +parts[1]-1, +parts[0]);
+    return (Date.now() - d.getTime()) < 36*3600*1000;
+  } catch(e) { return false; }
+}
+
+function renderTabela(dados) {
+  const tbody = document.getElementById('tabela');
+  const empty = document.getElementById('empty');
+  const stats = document.getElementById('stats');
+
+  // Stats
+  const total  = dados.length;
+  const novos  = dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
+  const turmas = new Set(dados.map(d => d['TURMA/CÂMARA']).filter(Boolean)).size;
+  stats.innerHTML = `
+    <div class="stat-card"><div class="val">${total}</div><div class="lbl">Processos ativos</div></div>
+    <div class="stat-card"><div class="val" style="color:#166534">${novos}</div><div class="lbl">Novos (24h)</div></div>
+    <div class="stat-card"><div class="val">${turmas}</div><div class="lbl">Turmas/Câmaras</div></div>
+  `;
+
+  if (!dados.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = dados.map(d => `
+    <tr>
+      <td>
+        <span class="proc-link" title="Clique para copiar" onclick="navigator.clipboard.writeText('${d['NÚMERO DO PROCESSO']}')">${d['NÚMERO DO PROCESSO']}</span>
+        ${_isNovo(d['DATA DE CAPTURA']) ? '<span class="badge-novo">NOVO</span>' : ''}
+      </td>
+      <td>${d['DATA DE DISTRIBUIÇÃO'] || '—'}</td>
+      <td><span class="turma-badge">${d['TURMA/CÂMARA'] || '—'}</span></td>
+      <td>${d['RELATOR'] || '—'}</td>
+      <td>${d['CLASSE'] || '—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d['PARTES'] || ''}">${d['PARTES'] || '—'}</td>
+      <td style="white-space:nowrap;color:#999">${d['DATA DE CAPTURA'] || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// ── JOB POLLING ──────────────────────────────────────────────
+async function iniciarAtualizacao() {
+  const adv = document.getElementById('selAdv').value;
+  const cpf_opt = document.querySelector(`#selAdv option[value="${adv}"]`);
+  // Busca CPF via /api/usuarios
+  let cpf = '';
+  try {
+    const r = await fetch(API + '/usuarios', {headers: _headers()});
+    const j = await r.json();
+    const lista = j.usuarios || j || [];
+    const u = lista.find(x => (x.label||x.cpf).toLowerCase().replace(/ /g,'_') === adv);
+    if (u) cpf = u.cpf;
+  } catch(e) {}
+  if (!cpf) { alert('Selecione um advogado válido.'); return; }
+
+  document.getElementById('btnAtualizar').disabled = true;
+  document.getElementById('progressWrap').style.display = 'block';
+
+  try {
+    const r = await fetch(API + '/iniciar_distribuicoes', {
+      method: 'POST',
+      headers: _headers(),
+      body: JSON.stringify({cpf})
+    });
+    const j = await r.json();
+    if (j.ok) {
+      _jobId = j.job_id;
+      _pollTimer = setInterval(pollJob, 3000);
+    } else {
+      alert(j.error || 'Erro ao iniciar.');
+      resetUI();
+    }
+  } catch(e) { alert('Erro de conexão.'); resetUI(); }
+}
+
+async function pollJob() {
+  if (!_jobId) return;
+  try {
+    const r = await fetch(API + '/progresso/' + _jobId, {headers: _headers()});
+    const j = await r.json();
+    document.getElementById('progressFill').style.width = (j.pct || 0) + '%';
+    document.getElementById('statusMsg').textContent = j.subtitulo || '';
+
+    if (j.status === 'done') {
+      clearInterval(_pollTimer);
+      resetUI();
+      await carregarDados();
+    } else if (j.status === 'error') {
+      clearInterval(_pollTimer);
+      alert('Erro: ' + (j.error || 'Falha desconhecida'));
+      resetUI();
+    }
+  } catch(e) {}
+}
+
+function resetUI() {
+  document.getElementById('btnAtualizar').disabled = false;
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+}
+
+// ── BOOT ─────────────────────────────────────────────────────
+(async function() {
+  if (!token) return;
+  // Verifica se token ainda é válido
+  try {
+    const r = await fetch(API + '/usuarios', {headers: _headers()});
+    if (r.status === 401) { token = ''; localStorage.removeItem('analista_token'); return; }
+    mostrarConteudo();
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>

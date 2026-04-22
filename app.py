@@ -2432,6 +2432,95 @@ def api_iniciar_reanalise():
     return jsonify({'ok': True, 'job_id': job_id})
 
 
+@app.route('/api/iniciar_distribuicoes', methods=['POST', 'OPTIONS'])
+@_require_api_auth
+def api_iniciar_distribuicoes():
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    data  = request.get_json(force=True, silent=True) or {}
+    cpf   = str(data.get('cpf',   '')).strip()
+    senha = str(data.get('senha', '')).strip()
+    if not senha or senha == 'undefined':
+        senha = _get_senha_usuario(cpf)
+    if not cpf:
+        return jsonify({'ok': False, 'error': 'CPF não informado'}), 400
+
+    advogado_key  = _get_advogado_key(cpf)
+    nome_advogado = ''
+    for u in _listar_usuarios():
+        if u.get('cpf') == cpf:
+            nome_advogado = u.get('nome', '')
+            break
+
+    job_id = uuid.uuid4().hex[:8]
+    jobs[job_id] = {
+        'logs': [], 'status': 'running', 'file': None,
+        'error': '', 'pct': 5, 'subtitulo': 'Iniciando...',
+        'pausado': False, 'cancelado': False,
+        'linhas': [], 'criado_em': time.time(),
+        'tipo': 'distribuicoes',
+    }
+    threading.Thread(
+        target=workers.processar_job_distribuicoes,
+        args=(job_id, jobs, cpf, senha, advogado_key, nome_advogado),
+        daemon=True,
+    ).start()
+    return jsonify({'ok': True, 'job_id': job_id})
+
+
+@app.route('/api/distribuicoes', methods=['GET', 'OPTIONS'])
+@_require_api_auth
+def api_distribuicoes():
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    adv = request.args.get('adv', '').strip()
+    if not adv:
+        return jsonify({'ok': False, 'error': 'adv obrigatório'}), 400
+    try:
+        import sheets as _sh
+        dados = _sh.ler_distribuicoes(advogado_key=adv.lower().replace(' ', '_'))
+        return jsonify({'ok': True, 'data': dados, 'adv': adv})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+def _iniciar_scheduler_distribuicoes():
+    """Dispara verificação de distribuições às 00:05 todos os dias."""
+    from datetime import datetime, timedelta
+
+    def _segundos_ate_meia_noite():
+        agora  = datetime.now()
+        alvo   = (agora + timedelta(days=1)).replace(hour=0, minute=5, second=0, microsecond=0)
+        if agora.hour == 0 and agora.minute < 5:
+            alvo = agora.replace(hour=0, minute=5, second=0, microsecond=0)
+        return max(0, (alvo - agora).total_seconds())
+
+    def _executar():
+        while True:
+            time.sleep(_segundos_ate_meia_noite())
+            for usuario in _listar_usuarios():
+                cpf   = usuario.get('cpf', '')
+                senha = _get_senha_usuario(cpf)
+                if not cpf or not senha:
+                    continue
+                adv_key = _get_advogado_key(cpf)
+                jid = uuid.uuid4().hex[:8]
+                jobs[jid] = {
+                    'logs': [], 'status': 'running', 'file': None,
+                    'error': '', 'pct': 5, 'subtitulo': 'Auto 00:05...',
+                    'pausado': False, 'cancelado': False,
+                    'linhas': [], 'criado_em': time.time(),
+                    'tipo': 'distribuicoes',
+                }
+                threading.Thread(
+                    target=workers.processar_job_distribuicoes,
+                    args=(jid, jobs, cpf, senha, adv_key, usuario.get('nome', '')),
+                    daemon=True,
+                ).start()
+
+    threading.Thread(target=_executar, daemon=True).start()
+
+
 # ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     import webbrowser, subprocess, sys
@@ -2465,6 +2554,8 @@ if __name__ == "__main__":
 
     # Thread de limpeza automática de jobs antigos
     threading.Thread(target=_cleanup_jobs, daemon=True).start()
+
+    _iniciar_scheduler_distribuicoes()
 
     def _abrir_browser():
         time.sleep(1.5)

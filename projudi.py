@@ -1291,3 +1291,204 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
         "transitado_1g":            transitado_1g,
         "texto_movimentos":         texto_movimentos,
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# DISTRIBUIÇÕES 2º GRAU
+# ══════════════════════════════════════════════════════════════
+
+def get_url_distribuicoes_2g(page, log):
+    """Encontra a URL da busca de processos recursais (recursoBusca.do) nos frames."""
+    log("🔗 Localizando página de distribuições 2º grau...")
+    for frame in page.frames:
+        try:
+            href = frame.evaluate("""() => {
+                for (const a of document.querySelectorAll('a[href]')) {
+                    const h = a.getAttribute('href') || '';
+                    if (h.includes('recursoBusca')) return h;
+                }
+                return '';
+            }""")
+            if href:
+                return href if href.startswith('http') else BASE + href
+        except Exception:
+            pass
+    # Fallback: regex no HTML bruto
+    for frame in page.frames:
+        try:
+            html = frame.content()
+            m = re.search(r'["\'](/projudi/processo/recursal/recursoBusca\.do[^"\']*)["\']', html)
+            if m:
+                return BASE + m.group(1)
+        except Exception:
+            pass
+    log("   ⚠️ Link recursoBusca não encontrado nos frames.")
+    return ""
+
+
+def _extrair_processos_tabela_dist(html_content):
+    """Extrai processos de uma página HTML da tabela recursoBusca."""
+    soup = BeautifulSoup(html_content, 'html.parser')
+    processos = []
+    _CNJ_RE = re.compile(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}')
+
+    for table in soup.find_all('table'):
+        rows = table.find_all('tr')
+        if len(rows) < 2:
+            continue
+        if not _CNJ_RE.search(table.get_text()):
+            continue
+
+        headers = [c.get_text(strip=True).lower() for c in rows[0].find_all(['th', 'td'])]
+
+        for row in rows[1:]:
+            cells = row.find_all(['td', 'th'])
+            if not cells:
+                continue
+            textos = [c.get_text(' ', strip=True) for c in cells]
+
+            numero = ''
+            for cell in cells:
+                for a in cell.find_all('a'):
+                    t = a.get_text(strip=True)
+                    if _CNJ_RE.match(t):
+                        numero = t
+                        break
+                if numero:
+                    break
+            if not numero:
+                for t in textos:
+                    m = _CNJ_RE.search(t)
+                    if m:
+                        numero = m.group(0)
+                        break
+            if not numero:
+                continue
+
+            data_dist = relator = classe = turma = partes = ''
+            for idx, h in enumerate(headers):
+                if idx >= len(textos):
+                    break
+                v = textos[idx].strip()
+                if not v or v == numero:
+                    continue
+                if any(k in h for k in ('distribui', 'data dist')):
+                    if re.match(r'\d{2}/\d{2}/\d{4}', v):
+                        data_dist = v
+                elif 'relator' in h:
+                    relator = v.upper()
+                elif any(k in h for k in ('classe', 'tipo recurso', 'tipo proc')):
+                    classe = v
+                elif any(k in h for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
+                    turma = v
+                elif any(k in h for k in ('parte', 'autor', 'requer', 'apelant')):
+                    partes = v
+
+            if not data_dist:
+                for v in textos:
+                    if re.match(r'\d{2}/\d{2}/\d{4}', v) and v != numero:
+                        data_dist = v
+                        break
+
+            processos.append({
+                'NÚMERO DO PROCESSO':   numero,
+                'DATA DE DISTRIBUIÇÃO': data_dist,
+                'RELATOR':              relator,
+                'TURMA/CÂMARA':         turma,
+                'CLASSE':               classe,
+                'PARTES':               partes,
+            })
+
+        if processos:
+            break
+
+    return processos
+
+
+def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
+    """Scrapa todos os processos recursais ativos ordenados por data de distribuição ASC."""
+    if not url_dist:
+        log("   ❌ URL de distribuições não fornecida.")
+        return []
+
+    log("📋 Carregando página de distribuições 2º grau...")
+    try:
+        page.goto(url_dist)
+        try:
+            page.wait_for_load_state("networkidle", timeout=20000)
+        except Exception:
+            pass
+    except Exception as e:
+        log(f"   ❌ Falha ao navegar: {e}")
+        return []
+
+    log("   🔃 Ordenando por data de distribuição ASC...")
+    try:
+        page.evaluate("""() => {
+            var f = document.forms['recursoBuscaForm'];
+            if (!f) return;
+            try { f['ativosPageNumber'].value = '1'; } catch(e) {}
+            try { f['ativosSortColumn'].value = 'r.dataDistribuicao'; } catch(e) {}
+            try { f['ativosSortOrder'].value = 'ASC'; } catch(e) {}
+            f.submit();
+        }""")
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
+    except Exception as e:
+        log(f"   ⚠️ Não foi possível ordenar ({e}). Extraindo na ordem atual.")
+
+    processos = []
+    pagina = 1
+
+    while pagina <= max_paginas:
+        frame_alvo = next(
+            (f for f in page.frames if 'recursoBusca' in (f.url or '')),
+            page.main_frame
+        )
+        try:
+            html = frame_alvo.content()
+        except Exception:
+            html = page.content()
+
+        novos = _extrair_processos_tabela_dist(html)
+        if not novos:
+            log(f"   ⚠️ Página {pagina}: nenhum processo extraído — encerrando.")
+            break
+
+        processos.extend(novos)
+        log(f"   📄 Página {pagina}: {len(novos)} processo(s) | Total acumulado: {len(processos)}")
+
+        tem_proxima = False
+        try:
+            tem_proxima = bool(page.evaluate("""() => {
+                return Array.from(document.querySelectorAll('a')).some(a => {
+                    var t = (a.innerText || '').trim();
+                    return t === '>' || t === '>>' || t === 'Próximo' || t === 'Próxima';
+                });
+            }"""))
+        except Exception:
+            pass
+
+        if not tem_proxima:
+            break
+
+        pagina += 1
+        try:
+            page.evaluate(f"""() => {{
+                var f = document.forms['recursoBuscaForm'];
+                if (!f) return;
+                try {{ f['ativosPageNumber'].value = '{pagina}'; }} catch(e) {{}}
+                f.submit();
+            }}""")
+            try:
+                page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass
+        except Exception as e:
+            log(f"   ⚠️ Erro ao avançar página: {e}")
+            break
+
+    log(f"   ✅ Total: {len(processos)} processo(s) ativo(s) em {pagina} página(s).")
+    return processos

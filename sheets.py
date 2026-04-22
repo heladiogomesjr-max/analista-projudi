@@ -146,3 +146,81 @@ def inserir_na_planilha(linhas, turma_vara, advogado_key=None, log=None, modo='a
     except Exception as e:
         log(f"   ⚠️ Sheets: falha ao inserir — {e}")
         return False
+
+
+COLUNAS_DIST = [
+    'NÚMERO DO PROCESSO',
+    'DATA DE DISTRIBUIÇÃO',
+    'RELATOR',
+    'TURMA/CÂMARA',
+    'CLASSE',
+    'PARTES',
+    'DATA DE CAPTURA',
+]
+
+
+def inserir_distribuicoes(processos, advogado_key=None, log=None):
+    """Envia processos recursais ativos para a aba 'Distribuições 2G' do Sheets."""
+    if log is None:
+        log = print
+    cfg = _cfg()
+    if not advogado_key:
+        advogado_key = cfg.get('sheets', 'advogado_padrao', fallback='luis_albert')
+    url = cfg.get('sheets', 'apps_script_url', fallback='').strip()
+    if not url or url.startswith('#'):
+        log("   ⚠️ Sheets: URL do Apps Script não configurada.")
+        return False
+    sheet_id = ''
+    if cfg.has_section(advogado_key):
+        sheet_id = cfg.get(advogado_key, 'sheet_id', fallback='').strip()
+
+    rows_clean = [
+        {col: p.get(col, '') for col in COLUNAS_DIST}
+        for p in processos
+        if str(p.get('NÚMERO DO PROCESSO') or '').strip()
+    ]
+    if not rows_clean:
+        return True
+
+    payload = {
+        'adv':    advogado_key.upper().replace(' ', '_'),
+        'tab':    'Distribuições 2G',
+        'rows':   rows_clean,
+        'modo':   'upsert',
+        'tipo':   'distribuicoes',
+    }
+    if sheet_id:
+        payload['sheet_id'] = sheet_id
+
+    try:
+        resp = requests.post(url, json=payload, timeout=60)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get('ok'):
+            log(f"   📊 Distribuições: {result.get('inseridos', len(rows_clean))} atualizado(s).")
+            return True
+        log(f"   ⚠️ Sheets: {result.get('error', 'erro')}")
+        return False
+    except Exception as e:
+        log(f"   ⚠️ Sheets (distribuições): {e}")
+        return False
+
+
+def ler_distribuicoes(advogado_key=None, log=None):
+    """Lê processos da aba 'Distribuições 2G' do Sheets."""
+    if log is None:
+        log = lambda *a: None
+    cfg = _cfg()
+    if not advogado_key:
+        advogado_key = cfg.get('sheets', 'advogado_padrao', fallback='luis_albert')
+    url = cfg.get('sheets', 'apps_script_url', fallback='').strip()
+    if not url or url.startswith('#'):
+        return []
+    adv = advogado_key.upper().replace(' ', '_')
+    try:
+        resp = requests.get(url, params={'adv': adv, 'action': 'distribuicoes'}, timeout=30)
+        resp.raise_for_status()
+        result = resp.json()
+        return result.get('data', []) if result.get('ok') else []
+    except Exception:
+        return []

@@ -21,6 +21,16 @@ const COLUNAS = [
   'TRANSITADO EM JULGADO?',
 ];
 
+const COLUNAS_DIST = [
+  'NÚMERO DO PROCESSO',
+  'DATA DE DISTRIBUIÇÃO',
+  'RELATOR',
+  'TURMA/CÂMARA',
+  'CLASSE',
+  'PARTES',
+  'DATA DE CAPTURA',
+];
+
 // Índice da coluna STATUS DA DECISÃO (base 0)
 const I_STATUS = COLUNAS.indexOf('STATUS DA DECISÃO');
 
@@ -127,6 +137,28 @@ function doGet(e) {
     }
   }
 
+  // Leitura da aba Distribuições 2G
+  if (params.action === 'distribuicoes') {
+    try {
+      if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
+      var ss  = SpreadsheetApp.openById(sheetId);
+      var ws  = ss.getSheetByName('Distribuições 2G');
+      if (!ws || ws.getLastRow() < 2) return ok({ data: [], adv: adv });
+      var data = ws.getDataRange().getValues();
+      var hdrs = data[0].map(String);
+      var rows = [];
+      for (var i = 1; i < data.length; i++) {
+        var r = data[i];
+        var obj = {};
+        hdrs.forEach(function(h, idx) { obj[h] = String(r[idx] || ''); });
+        if (obj['NÚMERO DO PROCESSO']) rows.push(obj);
+      }
+      return ok({ data: rows, adv: adv, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      return erro(err.message);
+    }
+  }
+
   try {
     if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
 
@@ -195,6 +227,44 @@ function doPost(e) {
     var ss = SpreadsheetApp.openById(sheetId);
     _migrarNomesAbas(ss);
     _limparAbas(ss);
+
+    // Modo distribuições: usa COLUNAS_DIST e aba 'Distribuições 2G'
+    if (payload.tipo === 'distribuicoes') {
+      var wsDist = ss.getSheetByName('Distribuições 2G');
+      if (!wsDist) {
+        wsDist = ss.insertSheet('Distribuições 2G');
+        wsDist.appendRow(COLUNAS_DIST);
+        wsDist.getRange(1, 1, 1, COLUNAS_DIST.length)
+          .setFontWeight('bold').setBackground('#1a1a18').setFontColor('#f5f4f0')
+          .setHorizontalAlignment('center');
+        wsDist.setFrozenRows(1);
+      }
+      var lastRowDist = wsDist.getLastRow();
+      var idxProcDist = {};
+      if (lastRowDist > 1) {
+        wsDist.getRange(2, 1, lastRowDist - 1, 1).getValues()
+          .forEach(function(r, i) {
+            if (r[0]) idxProcDist[_normProc(r[0])] = i + 2;
+          });
+      }
+      var inseridosDist = 0;
+      rows.forEach(function(row) {
+        var proc = _normProc(row['NÚMERO DO PROCESSO']);
+        if (!proc) return;
+        var novaLinha = COLUNAS_DIST.map(function(col) {
+          return row[col] !== undefined ? row[col] : '';
+        });
+        if (idxProcDist[proc]) {
+          wsDist.getRange(idxProcDist[proc], 1, 1, COLUNAS_DIST.length).setValues([novaLinha]);
+        } else {
+          wsDist.appendRow(novaLinha);
+          idxProcDist[proc] = wsDist.getLastRow();
+        }
+        inseridosDist++;
+      });
+      SpreadsheetApp.flush();
+      return ok({ inseridos: inseridosDist, tab: 'Distribuições 2G' });
+    }
 
     // Rejeita abas que não sejam Turma/Câmara (2º grau)
     if (!_ehOrgao2g(tab)) {

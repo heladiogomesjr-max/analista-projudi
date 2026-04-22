@@ -852,3 +852,75 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
         job['status'] = 'error'
         job['error']  = str(e)
         log(f"❌ Erro geral: {e}")
+
+
+# ══════════════════════════════════════════════════════════════
+# WORKER DISTRIBUIÇÕES 2G
+# ══════════════════════════════════════════════════════════════
+def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key, nome_advogado=None):
+    """Worker: extrai processos recursais ativos do PROJUDI e envia para Google Sheets."""
+    from datetime import datetime
+    job  = jobs[job_id]
+    _t0  = time.time()
+
+    def log(msg):
+        elapsed = time.time() - _t0
+        msg_t   = f"[{elapsed:6.1f}s] {msg}"
+        print(msg_t, flush=True)
+        job['logs'].append(msg_t)
+
+    def pct(p, sub=''):
+        job['pct']       = p
+        job['subtitulo'] = sub
+
+    try:
+        pct(5, "Abrindo navegador...")
+        with sync_playwright() as pw:
+            browser, page = projudi.novo_browser(pw)
+            try:
+                pct(10, "Fazendo login...")
+                projudi.login(page, cpf, senha, log)
+
+                pct(25, "Localizando distribuições 2º grau...")
+                url_dist = projudi.get_url_distribuicoes_2g(page, log)
+                if not url_dist:
+                    job['status'] = 'error'
+                    job['error']  = 'Página recursoBusca não encontrada no menu. Verifique acesso ao 2º grau.'
+                    return
+
+                pct(35, "Extraindo processos ativos...")
+                processos = projudi.buscar_processos_ativos_2g(page, url_dist, log)
+            finally:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+
+        if not processos:
+            log("ℹ️ Nenhum processo ativo encontrado.")
+            job['status']    = 'done'
+            job['pct']       = 100
+            job['subtitulo'] = 'Nenhum processo encontrado.'
+            return
+
+        agora = datetime.now().strftime('%d/%m/%Y %H:%M')
+        for p in processos:
+            p['DATA DE CAPTURA'] = agora
+
+        pct(80, f"Enviando {len(processos)} processo(s) para Sheets...")
+        if _SHEETS_OK:
+            try:
+                _sheets_mod.inserir_distribuicoes(processos, advogado_key=advogado_key, log=log)
+            except Exception as e:
+                log(f"   ⚠️ Sheets: {e}")
+
+        job['processos'] = processos
+        job['status']    = 'done'
+        job['pct']       = 100
+        job['subtitulo'] = f"{len(processos)} processo(s) ativo(s)."
+        log(f"✅ Concluído: {len(processos)} processos enviados.")
+
+    except Exception as e:
+        job['status'] = 'error'
+        job['error']  = str(e)
+        log(f"❌ Erro: {e}")
