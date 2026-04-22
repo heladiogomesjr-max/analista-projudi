@@ -39,9 +39,8 @@ jobs:
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
-          echo "$CLASPRC_JSON" > ~/.clasprc.json
-          echo "Auth escrita em ~/.clasprc.json"
-          cat ~/.clasprc.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('JSON válido, chaves:', list(d.keys()))"
+          python3 -c "import json,os; json.dump(json.loads(os.environ['CLASPRC_JSON']), open(os.path.expanduser('~/.clasprc.json'), 'w'))"
+          echo "Auth ok"
       - name: Push código
         working-directory: apps_script
         run: clasp push --force
