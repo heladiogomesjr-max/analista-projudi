@@ -239,7 +239,7 @@ antes de interpretar qualquer menção a "réu" ou "recorrido" na ementa.
 
 ═══ REGRAS DE DECISÃO ═══
 Valores válidos para DECISAO:
-  • FAVORÁVEL | DESFAVORÁVEL | SENTENÇA ANULADA | EXTINTO SEM MÉRITO | ACORDO HOMOLOGADO | SEM PARECER CONCLUSIVO
+  • FAVORÁVEL | PARCIALMENTE FAVORÁVEL | DESFAVORÁVEL | SENTENÇA ANULADA | EXTINTO SEM MÉRITO | ACORDO HOMOLOGADO | SEM PARECER CONCLUSIVO
 
 PASSO 0 — Identifique o advogado do AUTOR (subscrição da petição ou cabeçalho do acórdão).
 PASSO 1 — Identifique o RECORRENTE. O consumidor pode ser RECORRENTE ou RECORRIDO — leia quem é quem.
@@ -283,11 +283,23 @@ PASSO 2 — Localize o dispositivo. Aplique as verificações NA ORDEM ABAIXO (a
        ⚠️ "RECURSO DESPROVIDO" com banco como RECORRENTE = banco perdeu = FAVORÁVEL ao consumidor
        → Prossiga para PASSO 3.
 
+  2-E) VERIFICAÇÃO DE RESULTADO PARCIAL (aplique APÓS definir provimento no PASSO 2-D):
+       O dispositivo ou o corpo do acórdão/sentença contém: "parcialmente procedente",
+       "em parte procedente", "provimento parcial", "dá parcial provimento",
+       "REDUZO o valor", "reduzo a condenação", "apenas em parte"?
+       ➜ Se SIM e o resultado é favorável ao consumidor (ele ganhou algo, mas não tudo) →
+         DECISAO = PARCIALMENTE FAVORÁVEL. Preencha DANO_MORAL e/ou DANO_MATERIAL com
+         os valores efetivamente concedidos (não o que foi pedido).
+       ⚠️ PARCIALMENTE FAVORÁVEL exige que o consumidor tenha obtido algum benefício concreto.
+          Se todos os pedidos foram negados → DESFAVORÁVEL (não é parcial).
+
 PASSO 3 — Combine (DECISAO reflete SEMPRE a perspectiva do consumidor):
-  consumidor é RECORRENTE + DAR PROVIMENTO    → FAVORÁVEL
-  consumidor é RECORRENTE + NEGAR PROVIMENTO  → DESFAVORÁVEL *
-  banco/réu  é RECORRENTE + DAR PROVIMENTO    → DESFAVORÁVEL
-  banco/réu  é RECORRENTE + NEGAR PROVIMENTO  → FAVORÁVEL
+  consumidor é RECORRENTE + DAR PROVIMENTO TOTAL  → FAVORÁVEL
+  consumidor é RECORRENTE + DAR PROVIMENTO PARCIAL → PARCIALMENTE FAVORÁVEL
+  consumidor é RECORRENTE + NEGAR PROVIMENTO       → DESFAVORÁVEL *
+  banco/réu  é RECORRENTE + DAR PROVIMENTO TOTAL   → DESFAVORÁVEL
+  banco/réu  é RECORRENTE + DAR PROVIMENTO PARCIAL → PARCIALMENTE FAVORÁVEL
+  banco/réu  é RECORRENTE + NEGAR PROVIMENTO       → FAVORÁVEL
 
   * ⚠️ EXCEÇÃO OBRIGATÓRIA antes de concluir DESFAVORÁVEL:
     Se "consumidor é RECORRENTE + NEGAR PROVIMENTO", verifique o PASSO C:
@@ -457,14 +469,15 @@ Use EXATAMENTE um dos códigos abaixo. Para cada um: leia o IDENTIFICAR e o NÃO
     use OUTRO. Não infira, não adivinhe. Uma classificação errada distorce o percentual
     de êxito por matéria e compromete a análise estratégica do escritório.
 
-  Esta hierarquia aplica-se a QUALQUER valor de DECISAO (FAVORÁVEL, DESFAVORÁVEL,
-  EXTINTO SEM MÉRITO, SENTENÇA ANULADA, SEM PARECER CONCLUSIVO, ACORDO HOMOLOGADO).
+  Esta hierarquia aplica-se a QUALQUER valor de DECISAO (FAVORÁVEL, PARCIALMENTE FAVORÁVEL,
+  DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA, SEM PARECER CONCLUSIVO, ACORDO HOMOLOGADO).
 
 ═══ REGRAS DE VALORES DE CONDENAÇÃO ═══
 Procure em: acórdão/embargos de mérito → sentença → petição inicial.
 Use o valor do acórdão se ele reformou a sentença.
 Preencha DANO_MATERIAL e DANO_MORAL separadamente. Formato obrigatório: R$ #.##0,00 (ex: R$ 3.000,00).
 Deixe ambos vazios se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO.
+Para PARCIALMENTE FAVORÁVEL: preencha apenas os valores efetivamente concedidos (não o que foi pedido).
 Para ACORDO HOMOLOGADO: preencha os valores acordados se expressamente informados no documento.
 
 ⚠️ Se DECISAO = SENTENÇA ANULADA:
@@ -518,11 +531,11 @@ IMPORTANTE: preencha RACIOCINIO primeiro — DECISAO deve ser a conclusão lógi
 {{
   "ADVOGADO": "Nome do advogado do autor identificado nos documentos",
   "RACIOCINIO": "Análise comparativa obrigatória em 5 partes: (0) CONTEXTO DO PROCESSO — o que a petição inicial contesta (produto/serviço), o que o consumidor pede, e o que a sentença de 1º grau decidiu. (1) DISPOSITIVO DO ACÓRDÃO — cite a frase exata do dispositivo (ex: 'ACORDAM negar provimento ao recurso interposto pelo banco'). Quem recorreu? (1.5) NATUREZA DO RESULTADO — o dispositivo é uma decisão de MÉRITO (condenação, inexigibilidade, improcedência) ou uma decisão PROCESSUAL (anula/cassa a sentença e remete para novo julgamento, extingue sem mérito)? Se PROCESSUAL por anulação: descreva o motivo da anulação (cerceamento de defesa, falta de fundamentação, incompetência, vício processual) e confirme que DECISAO = SENTENÇA ANULADA e que os valores devem estar vazios. (2) ACORDO OU EXTINÇÃO — houve menção a acordo, transação ou homologação em qualquer documento? Se sim, descreva. Se o processo foi extinto, qual foi o motivo exato (processual sem mérito, ou extinção por acordo)? (3) RESULTADO CONCRETO — se FAVORÁVEL: qual benefício CONCRETO o consumidor obteve (danos morais R$ X, danos materiais R$ Y, inexigibilidade de débito, suspensão de desconto)? Se DESFAVORÁVEL: o que foi negado? Se SENTENÇA ANULADA: o mérito NÃO foi decidido — não cite valores. NUNCA escreva apenas 'recurso provido' sem explicar o efeito concreto para o consumidor.",
-  "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO ou SEM PARECER CONCLUSIVO",
+  "DECISAO": "Derive do RACIOCINIO acima: FAVORÁVEL, PARCIALMENTE FAVORÁVEL, DESFAVORÁVEL, SENTENÇA ANULADA, EXTINTO SEM MÉRITO, ACORDO HOMOLOGADO ou SEM PARECER CONCLUSIVO",
   "TRANSITADO": "SIM se identificou sinal de trânsito em julgado em qualquer documento ou no histórico de movimentos. NÃO caso contrário.",
   "MATERIA": "SIGLA_DA_MATERIA",
-  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO — nesses casos o mérito não foi resolvido ou o consumidor não obteve valor. Para ACORDO HOMOLOGADO: valor material acordado se expressamente informado.",
-  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO — nesses casos o mérito não foi resolvido ou o consumidor não obteve valor. Para ACORDO HOMOLOGADO: valor moral acordado se expressamente informado."
+  "DANO_MATERIAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 1.500,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO. Para PARCIALMENTE FAVORÁVEL: valor efetivamente concedido (não o pedido). Para ACORDO HOMOLOGADO: valor acordado se expressamente informado.",
+  "DANO_MORAL": "SOMENTE o valor numérico no formato #.##0,00 (ex: 3.000,00). SEM R$, SEM texto, SEM explicação. OBRIGATORIAMENTE vazio se DESFAVORÁVEL, EXTINTO SEM MÉRITO, SENTENÇA ANULADA ou SEM PARECER CONCLUSIVO. Para PARCIALMENTE FAVORÁVEL: valor efetivamente concedido (não o pedido). Para ACORDO HOMOLOGADO: valor acordado se expressamente informado."
 }}"""
 
 
