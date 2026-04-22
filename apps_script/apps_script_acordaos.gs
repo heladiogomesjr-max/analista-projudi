@@ -100,6 +100,33 @@ function doGet(e) {
     }
   }
 
+  // Padronização: converte RELATOR/JUIZ para caixa alta em todas as abas
+  if (params.action === 'uppercase_relator') {
+    try {
+      if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
+      var ss         = SpreadsheetApp.openById(sheetId);
+      var colRelator = COLUNAS.indexOf('RELATOR/JUIZ') + 1; // base-1 para Sheets
+      var totalCels  = 0;
+      ss.getSheets().forEach(function(ws) {
+        var nome = ws.getName();
+        if (ABAS_SISTEMA.indexOf(nome) !== -1) return;
+        if (!_ehOrgao2g(nome)) return;
+        var lastRow = ws.getLastRow();
+        if (lastRow < 2) return;
+        var range = ws.getRange(2, colRelator, lastRow - 1, 1);
+        var vals  = range.getValues();
+        var atualizados = vals.map(function(row) {
+          return [row[0] ? String(row[0]).toUpperCase() : row[0]];
+        });
+        range.setValues(atualizados);
+        totalCels += lastRow - 1;
+      });
+      return ok({ atualizados: totalCels });
+    } catch (err) {
+      return erro(err.message);
+    }
+  }
+
   try {
     if (!sheetId) throw new Error('Planilha não configurada para: ' + adv);
 
