@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy-vm:
     name: VM Oracle Cloud
@@ -29,9 +32,11 @@ jobs:
         with:
           node-version: '20'
       - name: Instalar clasp
-        run: npm install -g @google/clasp
+        run: npm install -g @google/clasp@3.3.0
       - name: Autenticar clasp
-        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: echo "$CLASPRC_JSON" > ~/.clasprc.json
       - name: Push código
         working-directory: apps_script
         run: clasp push --force
