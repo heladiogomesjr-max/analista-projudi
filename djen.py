@@ -476,37 +476,36 @@ def _resolver_orgaos(opcao_turma):
     return ids
 
 
-def _chunks_mensais(data_ini, data_fim):
+def _chunks_por_intervalo(data_ini, data_fim, max_dias):
     """
-    Divide [data_ini, data_fim] em intervalos mensais.
+    Divide [data_ini, data_fim] em intervalos de no máximo max_dias dias.
     Retorna lista de tuplas (ini_str, fim_str) no formato YYYY-MM-DD.
-    Intervalos ≤ 35 dias retornam um único chunk sem divisão.
     """
     ini = date.fromisoformat(data_ini)
     fim = date.fromisoformat(data_fim)
-    if (fim - ini).days <= 35:
+    if (fim - ini).days <= max_dias:
         return [(data_ini, data_fim)]
     chunks = []
     cur = ini
     while cur <= fim:
-        # Primeiro dia do próximo mês
-        if cur.month == 12:
-            prox = date(cur.year + 1, 1, 1)
-        else:
-            prox = date(cur.year, cur.month + 1, 1)
-        fim_chunk = min(prox - timedelta(days=1), fim)
+        fim_chunk = min(cur + timedelta(days=max_dias - 1), fim)
         chunks.append((cur.isoformat(), fim_chunk.isoformat()))
-        cur = prox
+        cur = fim_chunk + timedelta(days=1)
     return chunks
+
+
+def _chunks_mensais(data_ini, data_fim):
+    return _chunks_por_intervalo(data_ini, data_fim, max_dias=35)
 
 
 def _buscar_orgao(nome_adv, data_ini, data_fim, orgao_id):
     """
     Busca publicações para um único órgão (ou todos se orgao_id=None).
-    Intervalos > 35 dias são divididos em chunks mensais para evitar
-    timeout e HTTP 500 da API ao paginar resultados com orgaoId.
+    Busca global (sem orgaoId) usa chunks de 7 dias para evitar o teto
+    de 1000 resultados da API. Buscas por órgão usam chunks mensais.
     """
-    chunks = _chunks_mensais(data_ini, data_fim)
+    max_dias = 7 if orgao_id is None else 35
+    chunks = _chunks_por_intervalo(data_ini, data_fim, max_dias)
     if len(chunks) > 1:
         vistos = {}  # proc -> index in lista
         lista  = []
