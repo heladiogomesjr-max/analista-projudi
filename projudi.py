@@ -1405,8 +1405,28 @@ def _extrair_processos_tabela_dist(html_content):
     return processos
 
 
+def _obter_total_paginas(page):
+    """
+    Lê o maior número de página nos links de paginação do recursoBuscaForm.
+    Os links usam javascript: com atribuição direta ao campo ativosPageNumber,
+    ex: href="javascript:document.forms['recursoBuscaForm']['ativosPageNumber'].value='23';..."
+    """
+    try:
+        return int(page.evaluate(r"""() => {
+            var max = 1;
+            document.querySelectorAll('a').forEach(function(a) {
+                var src = (a.getAttribute('href') || '') + (a.getAttribute('onclick') || '');
+                var m = src.match(/\[.ativosPageNumber.\]\s*\.value\s*=\s*.(\d+)./);
+                if (m) { var n = parseInt(m[1]); if (n > max) max = n; }
+            });
+            return max;
+        }""") or 1)
+    except Exception:
+        return 1
+
+
 def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
-    """Scrapa todos os processos recursais ativos ordenados por data de distribuição ASC."""
+    """Scrapa todos os processos recursais ativos ordenados por data de distribuição DESC."""
     if not url_dist:
         log("   ❌ URL de distribuições não fornecida.")
         return []
@@ -1422,14 +1442,14 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
         log(f"   ❌ Falha ao navegar: {e}")
         return []
 
-    log("   🔃 Ordenando por data de distribuição ASC...")
+    log("   🔃 Ordenando por data de distribuição DESC (mais recentes primeiro)...")
     try:
         page.evaluate("""() => {
             var f = document.forms['recursoBuscaForm'];
             if (!f) return;
             try { f['ativosPageNumber'].value = '1'; } catch(e) {}
             try { f['ativosSortColumn'].value = 'r.dataDistribuicao'; } catch(e) {}
-            try { f['ativosSortOrder'].value = 'ASC'; } catch(e) {}
+            try { f['ativosSortOrder'].value = 'DESC'; } catch(e) {}
             f.submit();
         }""")
         try:
@@ -1441,6 +1461,7 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
 
     processos = []
     pagina = 1
+    total_paginas = None  # descoberto na primeira página
 
     while pagina <= max_paginas:
         frame_alvo = next(
@@ -1458,20 +1479,15 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300):
             break
 
         processos.extend(novos)
-        log(f"   📄 Página {pagina}: {len(novos)} processo(s) | Total acumulado: {len(processos)}")
 
-        tem_proxima = False
-        try:
-            tem_proxima = bool(page.evaluate("""() => {
-                return Array.from(document.querySelectorAll('a')).some(a => {
-                    var t = (a.innerText || '').trim();
-                    return t === '>' || t === '>>' || t === 'Próximo' || t === 'Próxima';
-                });
-            }"""))
-        except Exception:
-            pass
+        # Na primeira página descobre o total de páginas pelos links de paginação
+        if total_paginas is None:
+            total_paginas = min(_obter_total_paginas(page), max_paginas)
+            log(f"   📄 Página {pagina}/{total_paginas}: {len(novos)} processo(s) | Total: {len(processos)}")
+        else:
+            log(f"   📄 Página {pagina}/{total_paginas}: {len(novos)} processo(s) | Total: {len(processos)}")
 
-        if not tem_proxima:
+        if pagina >= (total_paginas or 1):
             break
 
         pagina += 1
