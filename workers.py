@@ -160,7 +160,7 @@ def _montar_linha(numero, dados_projudi, resultado_ia):
         "STATUS DA DECISÃO":    resultado_ia.get("DECISAO", ""),
         "RESUMO DO PROCESSO":   resultado_ia.get("RACIOCINIO", ""),
         "MATÉRIA":              resultado_ia.get("MATERIA", ""),
-        "RELATOR/JUIZ":         dados_projudi.get("relator_juiz", ""),
+        "RELATOR/JUIZ":         (dados_projudi.get("relator_juiz", "") or "").upper(),
         "TURMA/VARA":           dados_projudi.get("turma_vara", ""),
         "DISTRIBUÍDO 2º GRAU":  "SIM" if grau == 2 else "NÃO",
         "TEM ACÓRDÃO 2º GRAU":  "SIM" if tem_acordao else "NÃO",
