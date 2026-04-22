@@ -767,7 +767,9 @@ def processar_job_djen(job_id, jobs, nome_adv, data_ini, data_fim, turma,
             # 4. Tipos de decisão genéricos — aceita apenas se órgão for 2g
             for kw in _TIPOS_PRECISA_2G:
                 if kw in td:
-                    return not org or _e_orgao_2g_pub(org)
+                    if not org:
+                        return any(kw2 in texto_up for kw2 in _KW_TEXTO_ACORDAO)
+                    return _e_orgao_2g_pub(org)
             # 5. Fallback: texto do corpo contém indicadores de acórdão
             return any(kw in texto_up for kw in _KW_TEXTO_ACORDAO)
 
