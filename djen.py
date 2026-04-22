@@ -501,10 +501,11 @@ def _chunks_mensais(data_ini, data_fim):
 def _buscar_orgao(nome_adv, data_ini, data_fim, orgao_id):
     """
     Busca publicações para um único órgão (ou todos se orgao_id=None).
-    Busca global (sem orgaoId) usa chunks de 7 dias para evitar o teto
-    de 1000 resultados da API. Buscas por órgão usam chunks mensais.
+    Busca global (sem orgaoId) usa chunks de 1 dia — advogados ativos
+    podem ter 300-400 publicações/dia, estourando o teto de 1000 em 7 dias.
+    Buscas por órgão usam chunks mensais (volume individual é menor).
     """
-    max_dias = 7 if orgao_id is None else 35
+    max_dias = 1 if orgao_id is None else 35
     chunks = _chunks_por_intervalo(data_ini, data_fim, max_dias)
     if len(chunks) > 1:
         vistos = {}  # proc -> index in lista
