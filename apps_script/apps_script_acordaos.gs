@@ -186,12 +186,12 @@ function doPost(e) {
       if (lastRow > 1) {
         ws.getRange(2, 1, lastRow - 1, 1).getValues()
           .forEach(function(r, i) {
-            if (r[0]) idxPorProc[String(r[0]).trim()] = i + 2; // +2: base-1 + pular cabeçalho
+            if (r[0]) idxPorProc[_normProc(r[0])] = i + 2; // +2: base-1 + pular cabeçalho
           });
       }
       var inseridos = 0;
       rows.forEach(function(row) {
-        var proc = String(row['NÚMERO DO PROCESSO'] || '').trim();
+        var proc = _normProc(row['NÚMERO DO PROCESSO']);
         if (!proc) return;
         var novaLinha = COLUNAS.map(function(col) {
           return row[col] !== undefined ? row[col] : '';
@@ -284,6 +284,10 @@ function _escreverCabecalho(ws) {
 
 
 // ── UTILITÁRIOS ───────────────────────────────────────────────
+function _normProc(v) {
+  return String(v || '').replace(/\D/g, '');
+}
+
 function _formatData(v) {
   if (!v) return '';
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
