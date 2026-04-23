@@ -893,6 +893,25 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
                     page, url_dist, log,
                     data_ini=data_ini, data_fim=data_fim,
                 )
+
+                if processos:
+                    # Descobre quais processos já estão no Sheets para enriquecer só os novos
+                    existentes = set()
+                    if _SHEETS_OK:
+                        try:
+                            result = _sheets_mod.ler_distribuicoes(advogado_key=advogado_key)
+                            existentes = {
+                                p.get('NÚMERO DO PROCESSO', '')
+                                for p in result.get('data', [])
+                                if p.get('RELATOR')  # já enriquecido
+                            }
+                        except Exception:
+                            pass
+
+                    novos = [p for p in processos if p.get('NÚMERO DO PROCESSO') not in existentes]
+                    if novos:
+                        pct(65, f"Consultando {len(novos)} processo(s) novo(s)...")
+                        projudi.enriquecer_cabecalho_2g(page, novos, url_dist, log)
             finally:
                 try:
                     browser.close()
@@ -909,6 +928,7 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
         agora = datetime.now().strftime('%d/%m/%Y %H:%M')
         for p in processos:
             p['DATA DE CAPTURA'] = agora
+            p.pop('_url', None)  # remove campo interno antes de enviar ao Sheets
 
         pct(80, f"Enviando {len(processos)} processo(s) para Sheets...")
         if _SHEETS_OK:

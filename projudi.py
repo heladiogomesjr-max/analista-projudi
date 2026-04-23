@@ -816,6 +816,42 @@ def _extrair_cabecalho_2g(page):
     return relator.strip(), orgao.strip()
 
 
+def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
+    """
+    Para cada processo sem relator/turma, navega na página individual e extrai os dados.
+    Usa a URL direta capturada na listagem quando disponível; caso contrário usa _navegar_2g.
+    Limita a 'limite' processos por chamada para controlar o tempo de execução.
+    """
+    pendentes = [p for p in processos if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')]
+    if not pendentes:
+        return
+    if limite:
+        pendentes = pendentes[:limite]
+    log(f"🔍 Enriquecendo {len(pendentes)} processo(s) com relator/turma...")
+    for i, p in enumerate(pendentes):
+        num  = p.get('NÚMERO DO PROCESSO', '')
+        url  = p.get('_url', '')
+        try:
+            if url:
+                page.goto(url, timeout=20000)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=10000)
+                except Exception:
+                    pass
+            else:
+                ok = _navegar_2g(page, num, url_busca_2g, log)
+                if not ok:
+                    continue
+            relator, turma = _extrair_cabecalho_2g(page)
+            if relator:
+                p['RELATOR'] = relator
+            if turma:
+                p['TURMA/CÂMARA'] = turma
+            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'}")
+        except Exception as e:
+            log(f"   [{i+1}/{len(pendentes)}] {num}: erro — {e}")
+
+
 def _extrair_cabecalho_1g(page):
     """Juiz e vara/juízo da página do 1º Grau."""
     url_proc = page.url
@@ -1351,11 +1387,15 @@ def _extrair_processos_tabela_dist(html_content):
             textos = [c.get_text(' ', strip=True) for c in cells]
 
             numero = ''
+            url_proc = ''
             for cell in cells:
                 for a in cell.find_all('a'):
                     t = a.get_text(strip=True)
                     if _CNJ_RE.match(t):
                         numero = t
+                        href = a.get('href', '')
+                        if href and not href.startswith('javascript'):
+                            url_proc = href if href.startswith('http') else BASE + href
                         break
                 if numero:
                     break
@@ -1404,6 +1444,7 @@ def _extrair_processos_tabela_dist(html_content):
                 'TURMA/CÂMARA':         turma,
                 'CLASSE':               classe,
                 'PARTES':               partes,
+                '_url':                 url_proc,   # URL direta do processo (uso interno)
             })
 
         if processos:
