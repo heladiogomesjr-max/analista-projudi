@@ -178,6 +178,7 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
         {col: p.get(col, '') for col in COLUNAS_DIST}
         for p in processos
         if str(p.get('NÚMERO DO PROCESSO') or '').strip()
+        and p.get('STATUS DO JULGAMENTO') != 'Julgado'
     ]
     if not rows_clean:
         return True
