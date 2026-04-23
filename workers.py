@@ -889,10 +889,11 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
                     return
 
                 pct(35, "Extraindo processos ativos...")
-                processos = projudi.buscar_processos_ativos_2g(
+                processos, total_projudi = projudi.buscar_processos_ativos_2g(
                     page, url_dist, log,
                     data_ini=data_ini, data_fim=data_fim,
                 )
+                job['total_projudi'] = total_projudi
 
                 if processos:
                     # Lê turmas/câmaras para identificar processos já julgados
@@ -958,8 +959,28 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
         job['processos'] = processos
         job['status']    = 'done'
         job['pct']       = 100
-        job['subtitulo'] = f"{len(processos)} processo(s) ativo(s)."
-        log(f"✅ Concluído: {len(processos)} processos enviados.")
+
+        ativos = len([p for p in processos if p.get('STATUS DO JULGAMENTO') != 'Julgado'])
+        sub = f"{ativos} ativo(s) na lista"
+        if total_projudi:
+            sub += f" | {total_projudi} no PROJUDI"
+        job['subtitulo'] = sub
+        log(f"✅ Concluído: {ativos} ativo(s) na lista (PROJUDI reporta {total_projudi}).")
+
+        # Persiste total_projudi para que /api/distribuicoes possa expô-lo
+        try:
+            import json as _json
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cache_dist.json')
+            try:
+                with open(cache_path) as _cf:
+                    _cache = _json.load(_cf)
+            except Exception:
+                _cache = {}
+            _cache[advogado_key] = {'total_projudi': total_projudi}
+            with open(cache_path, 'w') as _cf:
+                _json.dump(_cache, _cf)
+        except Exception:
+            pass
 
     except Exception as e:
         job['status'] = 'error'

@@ -1467,6 +1467,26 @@ def _extrair_processos_tabela_dist(html_content):
     return processos
 
 
+def _extrair_total_registros(html):
+    """Tenta extrair o total de registros reportado pelo PROJUDI na página de resultados."""
+    import re as _re
+    candidatos = []
+    # "Exibindo X - Y de Z registro(s)"  |  "de Z registros"  |  "Total: Z"
+    for pat in [
+        r'de\s+([\d\.]+)\s*registro',
+        r'total\s+de\s+([\d\.]+)\s*registro',
+        r'registros?\s*encontrados?\s*:\s*([\d\.]+)',
+        r'<b>\s*([\d\.]+)\s*</b>\s*registro',
+        r'totalDeRegistros\s*[=:]\s*["\']?([\d\.]+)',
+    ]:
+        for m in _re.finditer(pat, html, _re.IGNORECASE):
+            try:
+                candidatos.append(int(m.group(1).replace('.', '').replace(',', '')))
+            except Exception:
+                pass
+    return max(candidatos) if candidatos else 0
+
+
 def _obter_total_paginas(page):
     """
     Lê o maior número de página nos links de paginação do recursoBuscaForm.
@@ -1543,7 +1563,7 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
     """
     if not url_dist:
         log("   ❌ URL de distribuições não fornecida.")
-        return []
+        return [], 0
 
     _d_ini = _parse_data_dist(data_ini)
     _d_fim = _parse_data_dist(data_fim)
@@ -1560,7 +1580,7 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
             pass
     except Exception as e:
         log(f"   ❌ Falha ao navegar: {e}")
-        return []
+        return [], 0
 
     # Localiza o frame que contém o formulário de busca.
     # O PROJUDI usa frameset — após page.goto, o conteúdo pode estar num sub-frame.
@@ -1615,7 +1635,8 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
     processos = []
     pagina = 1
-    total_paginas = None  # descoberto na primeira página
+    total_paginas = None   # descoberto na primeira página
+    total_registros = 0    # total reportado pelo PROJUDI (extraído da 1ª página)
 
     while pagina <= max_paginas:
         # Após submissão/paginação, PROJUDI retorna um frameset com ≈376 chars.
@@ -1668,7 +1689,11 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         processos.extend(novos)
 
-        # Na primeira página descobre o total de páginas pelos links de paginação
+        # Na primeira página extrai total de registros e total de páginas
+        if total_registros == 0:
+            total_registros = _extrair_total_registros(html)
+            if total_registros:
+                log(f"   📊 PROJUDI reporta {total_registros} registro(s) ativo(s)")
         if total_paginas is None:
             try:
                 total_paginas = min(int(frame_alvo.evaluate(r"""() => {
@@ -1715,4 +1740,4 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
     )
 
     log(f"   ✅ Total: {len(processos)} processo(s) ativo(s) em {pagina} página(s).")
-    return processos
+    return processos, total_registros

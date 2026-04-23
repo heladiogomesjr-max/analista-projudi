@@ -165,6 +165,7 @@ const API = '/api';
 let token = localStorage.getItem('analista_token') || '';
 let _dados = [];
 let _totalJulgados = 0;
+let _totalProjudi  = 0;
 let _jobId = null;
 let _pollTimer = null;
 let _carregando = false;
@@ -250,6 +251,7 @@ async function carregarDados() {
     if (j.ok) {
       _dados = j.data || [];
       _totalJulgados = j.totalJulgados || 0;
+      _totalProjudi  = j.totalProjudi  || 0;
       _carregando = false;
       if (j.updatedAt) document.getElementById('lastUpdate').textContent =
         'Atualizado: ' + new Date(j.updatedAt).toLocaleString('pt-BR');
@@ -318,10 +320,14 @@ function renderStats() {
     ? `<div class="val loading">—</div>`
     : `<div class="val${cls ? ' '+cls : ''}">${v}</div>`;
 
+  const lblAtivos = _totalProjudi
+    ? `Ativos na lista <span style="color:#6e7681;font-size:10px">(${_totalProjudi} no PROJUDI)</span>`
+    : 'Ativos na lista';
+
   stats.innerHTML = `
     <div class="stat-card">
       ${val(total)}
-      <div class="lbl">Ativos na lista</div>
+      <div class="lbl">${lblAtivos}</div>
     </div>
     <div class="stat-card pendente">
       ${val(pendentes)}

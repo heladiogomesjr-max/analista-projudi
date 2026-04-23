@@ -2480,11 +2480,20 @@ def api_distribuicoes():
     if not adv:
         return jsonify({'ok': False, 'error': 'adv obrigatório'}), 400
     try:
-        import sheets as _sh
-        result = _sh.ler_distribuicoes(advogado_key=adv.lower().replace(' ', '_'))
+        import sheets as _sh, json as _json
+        adv_key = adv.lower().replace(' ', '_')
+        result = _sh.ler_distribuicoes(advogado_key=adv_key)
+        total_projudi = 0
+        try:
+            _cp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cache_dist.json')
+            with open(_cp) as _cf:
+                total_projudi = _json.load(_cf).get(adv_key, {}).get('total_projudi', 0)
+        except Exception:
+            pass
         return jsonify({'ok': True, 'data': result.get('data', []),
                         'updatedAt': result.get('updatedAt'), 'adv': adv,
-                        'totalJulgados': result.get('totalJulgados', 0)})
+                        'totalJulgados': result.get('totalJulgados', 0),
+                        'totalProjudi': total_projudi})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
