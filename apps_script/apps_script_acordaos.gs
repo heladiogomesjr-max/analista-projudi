@@ -268,6 +268,7 @@ function doPost(e) {
           return row[col] !== undefined ? row[col] : '';
         }));
       });
+      var inseridosDist = dataToWrite.length;
 
       var startRow;
       if (batchMode === 'replace_first') {
