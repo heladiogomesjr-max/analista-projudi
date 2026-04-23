@@ -6,60 +6,68 @@
 <title>Distribuições 2º Grau — PROJUDI</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;display:flex;flex-direction:column}
-header{background:#1a1a18;color:#f5f4f0;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;display:flex;flex-direction:column}
+header{background:#0a0d10;color:#e6edf3;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid #21262d}
 header .title h1{font-size:15px;font-weight:600;letter-spacing:.03em}
-header .title p{font-size:11px;color:#888;margin-top:2px}
-header .back{font-size:12px;color:#888;text-decoration:none;white-space:nowrap}
-header .back:hover{color:#f5f4f0}
-.main{flex:1;padding:28px 24px;max-width:1200px;margin:0 auto;width:100%}
+header .title p{font-size:11px;color:#8b949e;margin-top:2px}
+header .back{font-size:12px;color:#8b949e;text-decoration:none;white-space:nowrap}
+header .back:hover{color:#e6edf3}
+.main{flex:1;padding:28px 24px;max-width:1280px;margin:0 auto;width:100%}
 
 /* Login */
 .login-wrap{display:flex;align-items:center;justify-content:center;min-height:60vh}
-.login-box{background:#fff;border:1px solid #e8e7e3;border-radius:12px;padding:36px 32px;width:100%;max-width:360px}
-.login-box h2{font-size:15px;font-weight:700;margin-bottom:20px}
+.login-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:36px 32px;width:100%;max-width:360px}
+.login-box h2{font-size:15px;font-weight:700;margin-bottom:20px;color:#e6edf3}
 .field{margin-bottom:14px}
-.field label{display:block;font-size:11px;font-weight:600;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
-.field input{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none}
-.field input:focus{border-color:#1a7a55}
-.btn-login{width:100%;background:#1a1a18;color:#f5f4f0;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
-.btn-login:hover{background:#333}
-.login-err{font-size:12px;color:#c0392b;margin-top:10px;text-align:center}
+.field label{display:block;font-size:11px;font-weight:600;color:#8b949e;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.field input{width:100%;padding:9px 12px;border:1px solid #30363d;border-radius:8px;font-size:13px;outline:none;background:#0d1117;color:#e6edf3}
+.field input:focus{border-color:#388bfd}
+.btn-login{width:100%;background:#238636;color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.btn-login:hover{background:#2ea043}
+.login-err{font-size:12px;color:#f85149;margin-top:10px;text-align:center}
 
 /* Toolbar */
-.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
-.toolbar select,.toolbar input[type=text]{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fff;outline:none}
-.toolbar select:focus,.toolbar input:focus{border-color:#1a7a55}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.toolbar select,.toolbar input[type=text]{padding:8px 12px;border:1px solid #30363d;border-radius:8px;font-size:13px;background:#161b22;color:#e6edf3;outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:#388bfd}
 .btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
-.btn-primary{background:#1a1a18;color:#f5f4f0}
-.btn-primary:hover{background:#333}
-.btn-primary:disabled{background:#ccc;cursor:not-allowed}
-.btn-outline{background:#fff;color:#1a1a18;border:1px solid #ddd}
-.btn-outline:hover{border-color:#1a7a55;color:#1a7a55}
-.last-update{font-size:11px;color:#999;margin-left:auto}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-primary:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.lbl-date{font-size:11px;color:#8b949e;font-weight:600}
+input[type=date]{padding:7px 10px;border:1px solid #30363d;border-radius:8px;font-size:13px;background:#161b22;color:#e6edf3;outline:none}
+input[type=date]:focus{border-color:#388bfd}
+.last-update{font-size:11px;color:#8b949e;margin-left:auto}
 
 /* Progress */
-.progress-bar{height:4px;background:#e8e7e3;border-radius:2px;overflow:hidden;margin-bottom:20px}
-.progress-fill{height:100%;background:#1a7a55;border-radius:2px;transition:width .3s}
-.status-msg{font-size:12px;color:#666;margin-bottom:16px}
+.progress-bar{height:4px;background:#21262d;border-radius:2px;overflow:hidden;margin-bottom:20px}
+.progress-fill{height:100%;background:#388bfd;border-radius:2px;transition:width .3s}
+.status-msg{font-size:12px;color:#8b949e;margin-bottom:16px}
 
 /* Stats */
-.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
-.stat-card{background:#fff;border:1px solid #e8e7e3;border-radius:10px;padding:14px 20px;min-width:140px}
-.stat-card .val{font-size:24px;font-weight:700;color:#1a1a18}
-.stat-card .lbl{font-size:11px;color:#999;margin-top:3px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.stat-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px;min-width:130px}
+.stat-card .val{font-size:24px;font-weight:700;color:#e6edf3}
+.stat-card .lbl{font-size:11px;color:#8b949e;margin-top:3px}
+.stat-card.pendente .val{color:#e3b341}
+.stat-card.pautado .val{color:#79c0ff}
 
 /* Table */
-.table-wrap{background:#fff;border:1px solid #e8e7e3;border-radius:12px;overflow:hidden}
+.table-wrap{background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden}
 .table-wrap table{width:100%;border-collapse:collapse;font-size:12px}
-.table-wrap th{background:#1a1a18;color:#f5f4f0;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap}
-.table-wrap td{padding:9px 12px;border-bottom:1px solid #f0efeb;vertical-align:top}
+.table-wrap th{background:#21262d;color:#8b949e;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.table-wrap td{padding:9px 12px;border-bottom:1px solid #21262d;vertical-align:middle}
 .table-wrap tr:last-child td{border-bottom:none}
-.table-wrap tr:hover td{background:#fafaf8}
-.badge-novo{display:inline-block;background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px}
-.proc-link{font-family:monospace;font-size:11px;color:#1a7a55;cursor:pointer;text-decoration:underline}
-.empty{text-align:center;color:#bbb;padding:48px 24px;font-size:13px}
-.turma-badge{display:inline-block;background:#f0f4ff;color:#1e40af;font-size:10px;padding:2px 8px;border-radius:12px;white-space:nowrap}
+.table-wrap tr:hover td{background:#1c2128}
+.badge-novo{display:inline-block;background:#0f2d1e;color:#56d364;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px}
+.proc-link{font-family:monospace;font-size:11px;color:#58a6ff;cursor:pointer;text-decoration:none}
+.proc-link:hover{text-decoration:underline}
+.empty{text-align:center;color:#8b949e;padding:48px 24px;font-size:13px}
+.turma-badge{display:inline-block;background:#0d2044;color:#79c0ff;font-size:10px;padding:2px 8px;border-radius:12px;white-space:nowrap}
+.status-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap}
+.status-pendente{background:#2d2208;color:#e3b341}
+.status-pautado{background:#0d2044;color:#79c0ff}
+.status-julgado{background:#0f2d1e;color:#56d364}
 </style>
 </head>
 <body>
@@ -86,17 +94,20 @@ header .back:hover{color:#f5f4f0}
   <!-- Conteúdo principal -->
   <div id="conteudo" style="display:none">
     <div class="toolbar">
-      <select id="selAdv" onchange="trocarAdvogado()">
-        <option value="">Carregando...</option>
-      </select>
+      <select id="selAdv" onchange="trocarAdvogado()"></select>
       <select id="filtroTurma" onchange="aplicarFiltros()">
         <option value="">Todas as Turmas/Câmaras</option>
       </select>
+      <select id="filtroStatus" onchange="aplicarFiltros()">
+        <option value="">Todos os Status</option>
+        <option value="Pendente">Pendente</option>
+        <option value="Pautado">Pautado</option>
+      </select>
       <input type="text" id="filtroBusca" placeholder="Buscar processo ou relator..." oninput="aplicarFiltros()" style="width:200px">
-      <label style="font-size:11px;color:#888;font-weight:600">DE</label>
-      <input type="date" id="dataIni" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
-      <label style="font-size:11px;color:#888;font-weight:600">ATÉ</label>
-      <input type="date" id="dataFim" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+      <span class="lbl-date">DE</span>
+      <input type="date" id="dataIni">
+      <span class="lbl-date">ATÉ</span>
+      <input type="date" id="dataFim">
       <button class="btn btn-primary" id="btnAtualizar" onclick="iniciarAtualizacao()">⟳ Atualizar agora</button>
       <span class="last-update" id="lastUpdate"></span>
     </div>
@@ -113,11 +124,11 @@ header .back:hover{color:#f5f4f0}
         <thead>
           <tr>
             <th>Nº DO PROCESSO</th>
-            <th>DATA DE DISTRIBUIÇÃO</th>
+            <th>DISTRIBUIÇÃO</th>
             <th>TURMA/CÂMARA</th>
             <th>RELATOR</th>
             <th>CLASSE</th>
-            <th>PARTES</th>
+            <th>STATUS</th>
             <th>CAPTURA</th>
           </tr>
         </thead>
@@ -221,11 +232,13 @@ function popularFiltroTurma() {
 
 function aplicarFiltros() {
   const turma  = document.getElementById('filtroTurma').value.toLowerCase();
+  const status = document.getElementById('filtroStatus').value;
   const busca  = document.getElementById('filtroBusca').value.toLowerCase();
   const filtrado = _dados.filter(d => {
-    if (turma && !(d['TURMA/CÂMARA'] || '').toLowerCase().includes(turma)) return false;
+    if (turma  && !(d['TURMA/CÂMARA'] || '').toLowerCase().includes(turma)) return false;
+    if (status && (d['STATUS DO JULGAMENTO'] || '') !== status)              return false;
     if (busca) {
-      const txt = [d['NÚMERO DO PROCESSO'],d['RELATOR'],d['PARTES'],d['CLASSE']].join(' ').toLowerCase();
+      const txt = [d['NÚMERO DO PROCESSO'], d['RELATOR'], d['CLASSE']].join(' ').toLowerCase();
       if (!txt.includes(busca)) return false;
     }
     return true;
@@ -243,27 +256,36 @@ function _isNovo(captura) {
   } catch(e) { return false; }
 }
 
-function renderTabela(dados) {
-  const tbody = document.getElementById('tabela');
-  const empty = document.getElementById('empty');
-  const stats = document.getElementById('stats');
+function _statusBadge(status) {
+  const cls = status === 'Pautado' ? 'pautado' : status === 'Julgado' ? 'julgado' : 'pendente';
+  return `<span class="status-badge status-${cls}">${status || 'Pendente'}</span>`;
+}
 
-  // Stats
-  const total  = dados.length;
-  const novos  = dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
-  const turmas = new Set(dados.map(d => d['TURMA/CÂMARA']).filter(Boolean)).size;
+function renderTabela(dados) {
+  const tbody   = document.getElementById('tabela');
+  const emptyEl = document.getElementById('empty');
+  const stats   = document.getElementById('stats');
+
+  const total    = dados.length;
+  const pautados = dados.filter(d => d['STATUS DO JULGAMENTO'] === 'Pautado').length;
+  const pendentes= dados.filter(d => !d['STATUS DO JULGAMENTO'] || d['STATUS DO JULGAMENTO'] === 'Pendente').length;
+  const novos    = dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
+  const turmas   = new Set(dados.map(d => d['TURMA/CÂMARA']).filter(Boolean)).size;
+
   stats.innerHTML = `
     <div class="stat-card"><div class="val">${total}</div><div class="lbl">Processos ativos</div></div>
-    <div class="stat-card"><div class="val" style="color:#166534">${novos}</div><div class="lbl">Novos (24h)</div></div>
+    <div class="stat-card pendente"><div class="val">${pendentes}</div><div class="lbl">Pendentes</div></div>
+    <div class="stat-card pautado"><div class="val">${pautados}</div><div class="lbl">Pautados</div></div>
+    <div class="stat-card"><div class="val" style="color:#56d364">${novos}</div><div class="lbl">Novos (24h)</div></div>
     <div class="stat-card"><div class="val">${turmas}</div><div class="lbl">Turmas/Câmaras</div></div>
   `;
 
   if (!dados.length) {
     tbody.innerHTML = '';
-    empty.style.display = 'block';
+    emptyEl.style.display = 'block';
     return;
   }
-  empty.style.display = 'none';
+  emptyEl.style.display = 'none';
 
   tbody.innerHTML = dados.map(d => `
     <tr>
@@ -271,12 +293,12 @@ function renderTabela(dados) {
         <span class="proc-link" title="Clique para copiar" onclick="navigator.clipboard.writeText('${d['NÚMERO DO PROCESSO']}')">${d['NÚMERO DO PROCESSO']}</span>
         ${_isNovo(d['DATA DE CAPTURA']) ? '<span class="badge-novo">NOVO</span>' : ''}
       </td>
-      <td>${d['DATA DE DISTRIBUIÇÃO'] || '—'}</td>
+      <td style="white-space:nowrap">${d['DATA DE DISTRIBUIÇÃO'] || '—'}</td>
       <td><span class="turma-badge">${d['TURMA/CÂMARA'] || '—'}</span></td>
       <td>${d['RELATOR'] || '—'}</td>
       <td>${d['CLASSE'] || '—'}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d['PARTES'] || ''}">${d['PARTES'] || '—'}</td>
-      <td style="white-space:nowrap;color:#999">${d['DATA DE CAPTURA'] || '—'}</td>
+      <td>${_statusBadge(d['STATUS DO JULGAMENTO'])}</td>
+      <td style="white-space:nowrap;color:#8b949e">${d['DATA DE CAPTURA'] || '—'}</td>
     </tr>
   `).join('');
 }
@@ -284,8 +306,6 @@ function renderTabela(dados) {
 // ── JOB POLLING ──────────────────────────────────────────────
 async function iniciarAtualizacao() {
   const adv = document.getElementById('selAdv').value;
-  const cpf_opt = document.querySelector(`#selAdv option[value="${adv}"]`);
-  // Busca CPF via /api/usuarios
   let cpf = '';
   try {
     const r = await fetch(API + '/usuarios', {headers: _headers()});
@@ -300,7 +320,7 @@ async function iniciarAtualizacao() {
   document.getElementById('progressWrap').style.display = 'block';
 
   try {
-    const fmtData = v => v ? v.split('-').reverse().join('/') : null; // yyyy-MM-dd → dd/MM/yyyy
+    const fmtData = v => v ? v.split('-').reverse().join('/') : null;
     const data_ini = fmtData(document.getElementById('dataIni').value);
     const data_fim = fmtData(document.getElementById('dataFim').value);
     const r = await fetch(API + '/iniciar_distribuicoes', {
@@ -348,7 +368,6 @@ function resetUI() {
 // ── BOOT ─────────────────────────────────────────────────────
 (async function() {
   if (!token) return;
-  // Verifica se token ainda é válido
   try {
     const r = await fetch(API + '/usuarios', {headers: _headers()});
     if (r.status === 401) { token = ''; localStorage.removeItem('analista_token'); return; }

@@ -27,9 +27,15 @@ const COLUNAS_DIST = [
   'RELATOR',
   'TURMA/CÂMARA',
   'CLASSE',
-  'PARTES',
+  'STATUS DO JULGAMENTO',
   'DATA DE CAPTURA',
 ];
+
+const STATUS_JULGAMENTO_FORMATO = {
+  'Pendente': { bg: '#fff2cc', fg: '#7d4e00' },
+  'Pautado':  { bg: '#c9daf8', fg: '#1155cc' },
+  'Julgado':  { bg: '#b7e1cd', fg: '#0d6b3a' },
+};
 
 // Índice da coluna STATUS DA DECISÃO (base 0)
 const I_STATUS = COLUNAS.indexOf('STATUS DA DECISÃO');
@@ -146,11 +152,19 @@ function doGet(e) {
       if (!ws || ws.getLastRow() < 2) return ok({ data: [], adv: adv });
       var data = ws.getDataRange().getValues();
       var hdrs = data[0].map(String);
+      var iDataDist = hdrs.indexOf('DATA DE DISTRIBUIÇÃO');
+      var iDataCap  = hdrs.indexOf('DATA DE CAPTURA');
       var rows = [];
       for (var i = 1; i < data.length; i++) {
         var r = data[i];
         var obj = {};
-        hdrs.forEach(function(h, idx) { obj[h] = String(r[idx] || ''); });
+        hdrs.forEach(function(h, idx) {
+          if (idx === iDataDist || idx === iDataCap) {
+            obj[h] = _formatData(r[idx]);
+          } else {
+            obj[h] = String(r[idx] || '');
+          }
+        });
         if (obj['NÚMERO DO PROCESSO']) rows.push(obj);
       }
       return ok({ data: rows, adv: adv, updatedAt: new Date().toISOString() });
@@ -248,20 +262,59 @@ function doPost(e) {
           });
       }
       var inseridosDist = 0;
+      var iStatusDist   = COLUNAS_DIST.indexOf('STATUS DO JULGAMENTO');
       rows.forEach(function(row) {
         var proc = _normProc(row['NÚMERO DO PROCESSO']);
         if (!proc) return;
         var novaLinha = COLUNAS_DIST.map(function(col) {
           return row[col] !== undefined ? row[col] : '';
         });
+        var targetRow;
         if (idxProcDist[proc]) {
           wsDist.getRange(idxProcDist[proc], 1, 1, COLUNAS_DIST.length).setValues([novaLinha]);
+          targetRow = idxProcDist[proc];
         } else {
           wsDist.appendRow(novaLinha);
-          idxProcDist[proc] = wsDist.getLastRow();
+          targetRow = wsDist.getLastRow();
+          idxProcDist[proc] = targetRow;
+        }
+        if (iStatusDist !== -1) {
+          var statusVal = novaLinha[iStatusDist];
+          var fmtStatus = STATUS_JULGAMENTO_FORMATO[statusVal];
+          if (fmtStatus) {
+            wsDist.getRange(targetRow, iStatusDist + 1)
+              .setBackground(fmtStatus.bg)
+              .setFontColor(fmtStatus.fg)
+              .setFontWeight('bold');
+          }
         }
         inseridosDist++;
       });
+
+      // Remove linhas marcadas como Julgado (e cross-check com abas de turmas)
+      if (iStatusDist !== -1) {
+        var julgadosNorm = {};
+        ss.getSheets().forEach(function(ws2) {
+          var n2 = ws2.getName();
+          if (ABAS_SISTEMA.indexOf(n2) !== -1 || n2 === 'Distribuições 2G') return;
+          if (!_ehOrgao2g(n2)) return;
+          var lr2 = ws2.getLastRow();
+          if (lr2 < 2) return;
+          ws2.getRange(2, 1, lr2 - 1, 1).getValues().forEach(function(rv) {
+            if (rv[0]) julgadosNorm[_normProc(rv[0])] = true;
+          });
+        });
+        var lastR = wsDist.getLastRow();
+        for (var r = lastR; r >= 2; r--) {
+          var rowVals   = wsDist.getRange(r, 1, 1, COLUNAS_DIST.length).getValues()[0];
+          var procNorm  = _normProc(rowVals[0]);
+          var statusCel = String(rowVals[iStatusDist] || '');
+          if (statusCel === 'Julgado' || julgadosNorm[procNorm]) {
+            wsDist.deleteRow(r);
+          }
+        }
+      }
+
       SpreadsheetApp.flush();
       return ok({ inseridos: inseridosDist, tab: 'Distribuições 2G' });
     }

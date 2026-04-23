@@ -816,18 +816,33 @@ def _extrair_cabecalho_2g(page):
     return relator.strip(), orgao.strip()
 
 
+def _detectar_pauta_2g(page):
+    """Retorna True se o processo 2G está pautado para julgamento."""
+    try:
+        texto = page.evaluate("() => document.body.innerText.toUpperCase()") or ""
+        for kw in ('EM PAUTA', 'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
+                   'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
+                   'PROCESSO EM PAUTA'):
+            if kw in texto:
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
     """
-    Para cada processo sem relator/turma, navega na página individual e extrai os dados.
-    Usa a URL direta capturada na listagem quando disponível; caso contrário usa _navegar_2g.
-    Limita a 'limite' processos por chamada para controlar o tempo de execução.
+    Navega em cada processo para enriquecer relator/turma e detectar status de pauta.
+    Visita processos sem relator/turma E processos com STATUS DO JULGAMENTO 'Pendente'.
     """
-    pendentes = [p for p in processos if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')]
+    pendentes = [p for p in processos
+                 if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')
+                 or p.get('STATUS DO JULGAMENTO', 'Pendente') == 'Pendente']
     if not pendentes:
         return
     if limite:
         pendentes = pendentes[:limite]
-    log(f"🔍 Enriquecendo {len(pendentes)} processo(s) com relator/turma...")
+    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + pauta)...")
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -847,7 +862,9 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
                 p['RELATOR'] = relator
             if turma:
                 p['TURMA/CÂMARA'] = turma
-            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'}")
+            status = 'Pautado' if _detectar_pauta_2g(page) else 'Pendente'
+            p['STATUS DO JULGAMENTO'] = status
+            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {status}")
         except Exception as e:
             log(f"   [{i+1}/{len(pendentes)}] {num}: erro — {e}")
 
@@ -1408,7 +1425,7 @@ def _extrair_processos_tabela_dist(html_content):
             if not numero:
                 continue
 
-            data_dist = relator = classe = turma = partes = ''
+            data_dist = relator = classe = turma = ''
             for idx, h in enumerate(headers):
                 if idx >= len(textos):
                     break
@@ -1426,8 +1443,6 @@ def _extrair_processos_tabela_dist(html_content):
                         classe = v
                 elif any(k in h for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
                     turma = v
-                elif any(k in h for k in ('parte', 'autor', 'requer', 'apelant')):
-                    partes = v
 
             # Fallback: qualquer data no texto da linha
             if not data_dist:
@@ -1443,8 +1458,7 @@ def _extrair_processos_tabela_dist(html_content):
                 'RELATOR':              relator,
                 'TURMA/CÂMARA':         turma,
                 'CLASSE':               classe,
-                'PARTES':               partes,
-                '_url':                 url_proc,   # URL direta do processo (uso interno)
+                '_url':                 url_proc,
             })
 
         if processos:

@@ -895,23 +895,41 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
                 )
 
                 if processos:
-                    # Descobre quais processos já estão no Sheets para enriquecer só os novos
-                    existentes = set()
+                    # Lê turmas/câmaras para identificar processos já julgados
+                    julgados_norm  = set()
+                    existentes_map = {}
                     if _SHEETS_OK:
                         try:
+                            acaos = _sheets_mod.ler_da_planilha(advogado_key=advogado_key, log=log)
+                            julgados_norm = {re.sub(r'\D', '', p['p']) for p in acaos if p.get('p')}
+                        except Exception:
+                            pass
+                        try:
                             result = _sheets_mod.ler_distribuicoes(advogado_key=advogado_key)
-                            existentes = {
-                                p.get('NÚMERO DO PROCESSO', '')
+                            existentes_map = {
+                                p.get('NÚMERO DO PROCESSO', ''): p
                                 for p in result.get('data', [])
-                                if p.get('RELATOR')  # já enriquecido
                             }
                         except Exception:
                             pass
 
-                    novos = [p for p in processos if p.get('NÚMERO DO PROCESSO') not in existentes]
-                    if novos:
-                        pct(65, f"Consultando {len(novos)} processo(s) novo(s)...")
-                        projudi.enriquecer_cabecalho_2g(page, novos, url_dist, log)
+                    for p in processos:
+                        num = p.get('NÚMERO DO PROCESSO', '')
+                        if re.sub(r'\D', '', num) in julgados_norm:
+                            p['STATUS DO JULGAMENTO'] = 'Julgado'
+                            continue
+                        existing = existentes_map.get(num, {})
+                        if not p.get('RELATOR') and existing.get('RELATOR'):
+                            p['RELATOR'] = existing['RELATOR']
+                        if not p.get('TURMA/CÂMARA') and existing.get('TURMA/CÂMARA'):
+                            p['TURMA/CÂMARA'] = existing['TURMA/CÂMARA']
+                        if not p.get('STATUS DO JULGAMENTO'):
+                            p['STATUS DO JULGAMENTO'] = existing.get('STATUS DO JULGAMENTO', 'Pendente')
+
+                    para_verificar = [p for p in processos if p.get('STATUS DO JULGAMENTO') != 'Julgado']
+                    if para_verificar:
+                        pct(55, f"Verificando {len(para_verificar)} processo(s)...")
+                        projudi.enriquecer_cabecalho_2g(page, para_verificar, url_dist, log)
             finally:
                 try:
                     browser.close()

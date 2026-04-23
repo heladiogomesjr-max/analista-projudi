@@ -154,7 +154,7 @@ COLUNAS_DIST = [
     'RELATOR',
     'TURMA/CÂMARA',
     'CLASSE',
-    'PARTES',
+    'STATUS DO JULGAMENTO',
     'DATA DE CAPTURA',
 ]
 
