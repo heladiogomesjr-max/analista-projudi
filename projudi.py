@@ -1437,6 +1437,21 @@ def _parse_data_dist(s):
         return None
 
 
+def _frame_com_maior_conteudo(page):
+    """Retorna o frame com maior volume de HTML (onde ficam as tabelas de resultado)."""
+    melhor = page.main_frame
+    maior_sz = 0
+    for frm in page.frames:
+        try:
+            sz = int(frm.evaluate("() => document.body ? document.body.innerHTML.length : 0") or 0)
+            if sz > maior_sz:
+                maior_sz = sz
+                melhor = frm
+        except Exception:
+            pass
+    return melhor
+
+
 def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
                                 data_ini=None, data_fim=None):
     """
@@ -1520,10 +1535,10 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
     total_paginas = None  # descoberto na primeira página
 
     while pagina <= max_paginas:
-        frame_alvo = next(
-            (f for f in page.frames if 'recursoBusca' in (f.url or '')),
-            page.main_frame
-        )
+        # Após submissão, PROJUDI retorna um frameset com ≈376 chars.
+        # O conteúdo real (tabela de processos) fica num frame filho.
+        # Procura o frame com mais conteúdo (mais tabelas / maior HTML).
+        frame_alvo = _frame_com_maior_conteudo(page)
         try:
             html = frame_alvo.content()
         except Exception:
@@ -1531,21 +1546,22 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         novos = _extrair_processos_tabela_dist(html)
         if not novos:
-            # Diagnóstico: loga URL, tamanho do HTML e amostra para identificar o problema
+            # Diagnóstico: loga todos os frames e seus tamanhos
             try:
-                log(f"   🔍 URL após submit: {frame_alvo.url[:120]}")
-                soup_dbg = BeautifulSoup(html, 'html.parser')
-                tabelas = soup_dbg.find_all('table')
-                log(f"   🔍 Tabelas encontradas: {len(tabelas)}")
-                # Tenta achar qualquer número com formato de processo
+                for frm in page.frames:
+                    try:
+                        sz = len(frm.content())
+                        log(f"   🔍 Frame: {(frm.url or 'about:blank')[:100]} ({sz} chars)")
+                    except Exception:
+                        pass
                 _qualquer_num = re.search(r'\d{7}[\-\.]\d{2}', html)
                 if _qualquer_num:
-                    log(f"   🔍 Amostra de número encontrado: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+30]!r}")
+                    log(f"   🔍 Amostra num: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+40]!r}")
                 else:
-                    log(f"   🔍 Nenhum padrão numérico de processo encontrado no HTML ({len(html)} chars)")
-                    log(f"   🔍 Amostra HTML: {html[1000:1500]!r}")
+                    log(f"   🔍 Sem número de processo no HTML do frame alvo ({len(html)} chars)")
+                    log(f"   🔍 Amostra: {html[500:900]!r}")
             except Exception as _e:
-                log(f"   🔍 Erro no diagnóstico: {_e}")
+                log(f"   🔍 Erro diagnóstico: {_e}")
             log(f"   ⚠️ Página {pagina}: nenhum processo extraído — encerrando.")
             break
 
