@@ -235,7 +235,11 @@ def ler_distribuicoes(advogado_key=None, log=None):
         resp.raise_for_status()
         result = resp.json()
         if result.get('ok'):
-            return {'data': result.get('data', []), 'updatedAt': result.get('updatedAt')}
-        return {'data': [], 'updatedAt': None}
+            return {
+                'data':          result.get('data', []),
+                'updatedAt':     result.get('updatedAt'),
+                'totalJulgados': result.get('totalJulgados', 0),
+            }
+        return {'data': [], 'updatedAt': None, 'totalJulgados': 0}
     except Exception:
         return {'data': [], 'updatedAt': None}

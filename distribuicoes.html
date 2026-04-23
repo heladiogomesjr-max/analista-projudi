@@ -10,6 +10,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 header{background:#0a0d10;color:#e6edf3;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid #21262d}
 header .title h1{font-size:15px;font-weight:600;letter-spacing:.03em}
 header .title p{font-size:11px;color:#8b949e;margin-top:2px}
+header .pipeline{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;margin-top:6px}
+header .pipeline .step{padding:2px 10px;border-radius:12px;font-weight:600;font-size:10px}
+header .pipeline .step.ativo{background:#162d22;color:#56d364}
+header .pipeline .step.pendente{background:#2d2208;color:#e3b341}
+header .pipeline .step.pautado{background:#0d2044;color:#79c0ff}
+header .pipeline .step.julgado{background:#1a1a18;color:#8b949e}
+header .pipeline .arrow{color:#30363d}
 header .back{font-size:12px;color:#8b949e;text-decoration:none;white-space:nowrap}
 header .back:hover{color:#e6edf3}
 .main{flex:1;padding:28px 24px;max-width:1280px;margin:0 auto;width:100%}
@@ -45,8 +52,9 @@ input[type=date]:focus{border-color:#388bfd}
 .status-msg{font-size:12px;color:#8b949e;margin-bottom:16px}
 
 /* Stats */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
 .stat-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px}
 .stat-card .val{font-size:24px;font-weight:700;color:#e6edf3}
 .stat-card .val.loading{color:#30363d;animation:pulse 1.2s ease-in-out infinite}
@@ -54,6 +62,7 @@ input[type=date]:focus{border-color:#388bfd}
 .stat-card .lbl{font-size:11px;color:#8b949e;margin-top:3px}
 .stat-card.pendente .val{color:#e3b341}
 .stat-card.pautado .val{color:#79c0ff}
+.stat-card.julgado-hist .val{color:#56d364}
 
 /* Table */
 .table-wrap{background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden}
@@ -77,7 +86,16 @@ input[type=date]:focus{border-color:#388bfd}
 <header>
   <div class="title">
     <h1>DISTRIBUIÇÕES 2º GRAU — PROJUDI</h1>
-    <p>Processos recursais ativos • Atualização automática às 00:05</p>
+    <p>Monitoramento de processos recursais • Atualização automática às 00:05</p>
+    <div class="pipeline">
+      <span class="step ativo">CAPTURADO</span>
+      <span class="arrow">→</span>
+      <span class="step pendente">PENDENTE</span>
+      <span class="arrow">→</span>
+      <span class="step pautado">PAUTADO</span>
+      <span class="arrow">→</span>
+      <span class="step julgado">JULGADO</span>
+    </div>
   </div>
   <a class="back" href="/">← Dashboard</a>
 </header>
@@ -146,6 +164,7 @@ input[type=date]:focus{border-color:#388bfd}
 const API = '/api';
 let token = localStorage.getItem('analista_token') || '';
 let _dados = [];
+let _totalJulgados = 0;
 let _jobId = null;
 let _pollTimer = null;
 let _carregando = false;
@@ -230,6 +249,7 @@ async function carregarDados() {
     const j = await r.json();
     if (j.ok) {
       _dados = j.data || [];
+      _totalJulgados = j.totalJulgados || 0;
       _carregando = false;
       if (j.updatedAt) document.getElementById('lastUpdate').textContent =
         'Atualizado: ' + new Date(j.updatedAt).toLocaleString('pt-BR');
@@ -289,21 +309,36 @@ function _statusBadge(status) {
 // Stats sempre calculados a partir de _dados (globais, não filtrados)
 function renderStats() {
   const stats    = document.getElementById('stats');
-  const lbl      = _carregando ? '<span class="val loading">—</span>' : null;
   const total    = _dados.length;
   const pautados = _dados.filter(d => d['STATUS DO JULGAMENTO'] === 'Pautado').length;
   const pendentes= _dados.filter(d => !d['STATUS DO JULGAMENTO'] || d['STATUS DO JULGAMENTO'] === 'Pendente').length;
   const novos    = _dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
 
-  const val = (v, extra='') => _carregando
+  const val = (v, cls='') => _carregando
     ? `<div class="val loading">—</div>`
-    : `<div class="val${extra ? ' style="'+extra+'"' : ''}">${v}</div>`;
+    : `<div class="val${cls ? ' '+cls : ''}">${v}</div>`;
 
   stats.innerHTML = `
-    <div class="stat-card">${val(total)}<div class="lbl">Processos ativos</div></div>
-    <div class="stat-card pendente">${val(pendentes)}<div class="lbl">Pendentes</div></div>
-    <div class="stat-card pautado">${val(pautados)}<div class="lbl">Pautados</div></div>
-    <div class="stat-card">${_carregando ? '<div class="val loading">—</div>' : '<div class="val" style="color:#56d364">'+novos+'</div>'}<div class="lbl">Novos (24h)</div></div>
+    <div class="stat-card">
+      ${val(total)}
+      <div class="lbl">Ativos na lista</div>
+    </div>
+    <div class="stat-card pendente">
+      ${val(pendentes)}
+      <div class="lbl">Pendentes</div>
+    </div>
+    <div class="stat-card pautado">
+      ${val(pautados)}
+      <div class="lbl">Pautados</div>
+    </div>
+    <div class="stat-card">
+      ${_carregando ? '<div class="val loading">—</div>' : '<div class="val" style="color:#58a6ff">'+novos+'</div>'}
+      <div class="lbl">Novos (24h)</div>
+    </div>
+    <div class="stat-card julgado-hist" title="Total acumulado de processos desta lista já julgados">
+      ${_carregando ? '<div class="val loading">—</div>' : '<div class="val">'+_totalJulgados+'</div>'}
+      <div class="lbl">Já julgados</div>
+    </div>
   `;
 }
 

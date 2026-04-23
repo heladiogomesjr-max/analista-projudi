@@ -167,7 +167,9 @@ function doGet(e) {
         });
         if (obj['NÚMERO DO PROCESSO']) rows.push(obj);
       }
-      return ok({ data: rows, adv: adv, updatedAt: new Date().toISOString() });
+      var wsJulg0 = ss.getSheetByName('Julgados');
+      var totalJulgados = wsJulg0 ? Math.max(0, wsJulg0.getLastRow() - 1) : 0;
+      return ok({ data: rows, adv: adv, updatedAt: new Date().toISOString(), totalJulgados: totalJulgados });
     } catch (err) {
       return erro(err.message);
     }
@@ -306,12 +308,12 @@ function doPost(e) {
         statusRange.setFontWeights(fwMatrix);
       }
 
-      // Remove linhas Julgado (only on final batch)
+      // Remove linhas Julgado (only on final batch) + arquiva em aba Julgados
       if (doCleanup && iStatusDist !== -1) {
         var julgadosNorm = {};
         ss.getSheets().forEach(function(ws2) {
           var n2 = ws2.getName();
-          if (ABAS_SISTEMA.indexOf(n2) !== -1 || n2 === 'Distribuições 2G') return;
+          if (ABAS_SISTEMA.indexOf(n2) !== -1 || n2 === 'Distribuições 2G' || n2 === 'Julgados') return;
           if (!_ehOrgao2g(n2)) return;
           var lr2 = ws2.getLastRow();
           if (lr2 < 2) return;
@@ -330,6 +332,42 @@ function doPost(e) {
               rowsToDelete.push(ri + 2);
             }
           }
+
+          // Arquiva em aba Julgados antes de excluir
+          if (rowsToDelete.length > 0) {
+            var COLUNAS_JULG = COLUNAS_DIST.concat(['DATA DO JULGAMENTO']);
+            var wsJulg = ss.getSheetByName('Julgados');
+            if (!wsJulg) {
+              wsJulg = ss.insertSheet('Julgados');
+              wsJulg.appendRow(COLUNAS_JULG);
+              wsJulg.getRange(1, 1, 1, COLUNAS_JULG.length)
+                .setFontWeight('bold').setBackground('#1a1a18').setFontColor('#f5f4f0')
+                .setHorizontalAlignment('center');
+              wsJulg.setFrozenRows(1);
+            }
+            var julgLastRow = wsJulg.getLastRow();
+            var julgExist   = {};
+            if (julgLastRow > 1) {
+              wsJulg.getRange(2, 1, julgLastRow - 1, 1).getValues().forEach(function(r) {
+                if (r[0]) julgExist[_normProc(r[0])] = true;
+              });
+            }
+            var hoje    = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+            var newJulg = [];
+            rowsToDelete.forEach(function(sheetRow) {
+              var rowData = allDistData[sheetRow - 2];
+              var pn = _normProc(rowData[0]);
+              if (!julgExist[pn]) {
+                newJulg.push(rowData.concat([hoje]));
+                julgExist[pn] = true;
+              }
+            });
+            if (newJulg.length > 0) {
+              wsJulg.getRange(julgLastRow + 1, 1, newJulg.length, COLUNAS_JULG.length)
+                .setValues(newJulg);
+            }
+          }
+
           for (var d = rowsToDelete.length - 1; d >= 0; d--) {
             wsDist.deleteRow(rowsToDelete[d]);
           }
