@@ -38,7 +38,9 @@ jobs:
       - name: Autenticar clasp
         env:
           CLASPRC_B64: ${{ secrets.CLASPRC_JSON }}
-        run: echo "$CLASPRC_B64" | base64 -d > ~/.clasprc.json
+        run: |
+          echo "$CLASPRC_B64" | base64 -d > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
       - name: Push código
         working-directory: apps_script
         run: clasp push --force
