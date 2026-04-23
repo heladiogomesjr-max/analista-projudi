@@ -1326,12 +1326,8 @@ def get_url_distribuicoes_2g(page, log):
     return ""
 
 
-_DIST_HEADERS_LOGGED = False  # loga headers reais apenas uma vez
-
-
 def _extrair_processos_tabela_dist(html_content):
     """Extrai processos de uma página HTML da tabela recursoBusca."""
-    global _DIST_HEADERS_LOGGED
     soup = BeautifulSoup(html_content, 'html.parser')
     processos = []
     _CNJ_RE = re.compile(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}')
@@ -1343,16 +1339,13 @@ def _extrair_processos_tabela_dist(html_content):
         if not _CNJ_RE.search(table.get_text()):
             continue
 
-        headers = [c.get_text(strip=True).lower() for c in rows[0].find_all(['th', 'td'])]
-        if not _DIST_HEADERS_LOGGED:
-            _DIST_HEADERS_LOGGED = True
-            print(f"[DIST] Headers reais: {headers}", flush=True)
-            if len(rows) > 1:
-                amostra = [c.get_text(' ', strip=True) for c in rows[1].find_all(['td','th'])]
-                print(f"[DIST] Primeira linha: {amostra}", flush=True)
+        # recursive=False: ignora td/th de tabelas aninhadas (ex: célula de partes)
+        headers = [c.get_text(strip=True).lower()
+                   for c in rows[0].find_all(['th', 'td'], recursive=False)]
 
         for row in rows[1:]:
-            cells = row.find_all(['td', 'th'])
+            # recursive=False garante alinhamento correto com os headers
+            cells = row.find_all(['td', 'th'], recursive=False)
             if not cells:
                 continue
             textos = [c.get_text(' ', strip=True) for c in cells]
@@ -1382,22 +1375,26 @@ def _extrair_processos_tabela_dist(html_content):
                 v = textos[idx].strip()
                 if not v or v == numero:
                     continue
-                if any(k in h for k in ('distribui', 'data dist')):
-                    if re.match(r'\d{2}/\d{2}/\d{4}', v):
-                        data_dist = v
+                if any(k in h for k in ('distribui', 'data dist', 'dt dist')):
+                    m = re.search(r'\d{2}/\d{2}/\d{4}', v)
+                    if m:
+                        data_dist = m.group(0)
                 elif 'relator' in h:
                     relator = v.upper()
                 elif any(k in h for k in ('classe', 'tipo recurso', 'tipo proc')):
-                    classe = v
+                    if not _CNJ_RE.search(v):
+                        classe = v
                 elif any(k in h for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
                     turma = v
                 elif any(k in h for k in ('parte', 'autor', 'requer', 'apelant')):
                     partes = v
 
+            # Fallback: qualquer data no texto da linha
             if not data_dist:
-                for v in textos:
-                    if re.match(r'\d{2}/\d{2}/\d{4}', v) and v != numero:
-                        data_dist = v
+                for t in textos:
+                    m = re.search(r'\d{2}/\d{2}/\d{4}', t)
+                    if m and t != numero:
+                        data_dist = m.group(0)
                         break
 
             processos.append({
