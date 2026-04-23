@@ -45,9 +45,12 @@ input[type=date]:focus{border-color:#388bfd}
 .status-msg{font-size:12px;color:#8b949e;margin-bottom:16px}
 
 /* Stats */
-.stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
-.stat-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px;min-width:130px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px}
 .stat-card .val{font-size:24px;font-weight:700;color:#e6edf3}
+.stat-card .val.loading{color:#30363d;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 .stat-card .lbl{font-size:11px;color:#8b949e;margin-top:3px}
 .stat-card.pendente .val{color:#e3b341}
 .stat-card.pautado .val{color:#79c0ff}
@@ -145,6 +148,25 @@ let token = localStorage.getItem('analista_token') || '';
 let _dados = [];
 let _jobId = null;
 let _pollTimer = null;
+let _carregando = false;
+
+// ── UTILS DE DATA ─────────────────────────────────────────────
+// Normaliza qualquer formato de data recebido (dd/MM/yyyy, ISO, verbose JS Date)
+// para dd/MM/AAAA HH:mm — ou só dd/MM/AAAA quando não há hora.
+function _fmtData(s, somenteData = false) {
+  if (!s || s === '—') return '—';
+  // Já está no formato correto (dd/MM/yyyy...)
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    return somenteData ? s.split(' ')[0] : s;
+  }
+  // Tenta converter qualquer outro formato (ISO, verbose JS Date string)
+  try {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s || '—';
+    if (somenteData) return d.toLocaleDateString('pt-BR');
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  } catch(e) { return s || '—'; }
+}
 
 // ── AUTH ─────────────────────────────────────────────────────
 async function fazerLogin() {
@@ -208,10 +230,12 @@ async function carregarDados() {
     const j = await r.json();
     if (j.ok) {
       _dados = j.data || [];
+      _carregando = false;
       if (j.updatedAt) document.getElementById('lastUpdate').textContent =
         'Atualizado: ' + new Date(j.updatedAt).toLocaleString('pt-BR');
       popularFiltroTurma();
-      renderTabela(_dados);
+      renderStats();
+      aplicarFiltros();
     }
   } catch(e) { console.error(e); }
 }
@@ -243,14 +267,15 @@ function aplicarFiltros() {
     }
     return true;
   });
-  renderTabela(filtrado);
+  renderTabela(filtrado);   // stats NÃO são afetados pelo filtro
 }
 
 // ── RENDER ───────────────────────────────────────────────────
 function _isNovo(captura) {
   if (!captura) return false;
   try {
-    const parts = captura.split(' ')[0].split('/');
+    const norm = _fmtData(captura);       // normaliza para dd/MM/yyyy HH:mm
+    const parts = norm.split(' ')[0].split('/');
     const d = new Date(+parts[2], +parts[1]-1, +parts[0]);
     return (Date.now() - d.getTime()) < 36*3600*1000;
   } catch(e) { return false; }
@@ -261,24 +286,30 @@ function _statusBadge(status) {
   return `<span class="status-badge status-${cls}">${status || 'Pendente'}</span>`;
 }
 
+// Stats sempre calculados a partir de _dados (globais, não filtrados)
+function renderStats() {
+  const stats    = document.getElementById('stats');
+  const lbl      = _carregando ? '<span class="val loading">—</span>' : null;
+  const total    = _dados.length;
+  const pautados = _dados.filter(d => d['STATUS DO JULGAMENTO'] === 'Pautado').length;
+  const pendentes= _dados.filter(d => !d['STATUS DO JULGAMENTO'] || d['STATUS DO JULGAMENTO'] === 'Pendente').length;
+  const novos    = _dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
+
+  const val = (v, extra='') => _carregando
+    ? `<div class="val loading">—</div>`
+    : `<div class="val${extra ? ' style="'+extra+'"' : ''}">${v}</div>`;
+
+  stats.innerHTML = `
+    <div class="stat-card">${val(total)}<div class="lbl">Processos ativos</div></div>
+    <div class="stat-card pendente">${val(pendentes)}<div class="lbl">Pendentes</div></div>
+    <div class="stat-card pautado">${val(pautados)}<div class="lbl">Pautados</div></div>
+    <div class="stat-card">${_carregando ? '<div class="val loading">—</div>' : '<div class="val" style="color:#56d364">'+novos+'</div>'}<div class="lbl">Novos (24h)</div></div>
+  `;
+}
+
 function renderTabela(dados) {
   const tbody   = document.getElementById('tabela');
   const emptyEl = document.getElementById('empty');
-  const stats   = document.getElementById('stats');
-
-  const total    = dados.length;
-  const pautados = dados.filter(d => d['STATUS DO JULGAMENTO'] === 'Pautado').length;
-  const pendentes= dados.filter(d => !d['STATUS DO JULGAMENTO'] || d['STATUS DO JULGAMENTO'] === 'Pendente').length;
-  const novos    = dados.filter(d => _isNovo(d['DATA DE CAPTURA'])).length;
-  const turmas   = new Set(dados.map(d => d['TURMA/CÂMARA']).filter(Boolean)).size;
-
-  stats.innerHTML = `
-    <div class="stat-card"><div class="val">${total}</div><div class="lbl">Processos ativos</div></div>
-    <div class="stat-card pendente"><div class="val">${pendentes}</div><div class="lbl">Pendentes</div></div>
-    <div class="stat-card pautado"><div class="val">${pautados}</div><div class="lbl">Pautados</div></div>
-    <div class="stat-card"><div class="val" style="color:#56d364">${novos}</div><div class="lbl">Novos (24h)</div></div>
-    <div class="stat-card"><div class="val">${turmas}</div><div class="lbl">Turmas/Câmaras</div></div>
-  `;
 
   if (!dados.length) {
     tbody.innerHTML = '';
@@ -293,12 +324,12 @@ function renderTabela(dados) {
         <span class="proc-link" title="Clique para copiar" onclick="navigator.clipboard.writeText('${d['NÚMERO DO PROCESSO']}')">${d['NÚMERO DO PROCESSO']}</span>
         ${_isNovo(d['DATA DE CAPTURA']) ? '<span class="badge-novo">NOVO</span>' : ''}
       </td>
-      <td style="white-space:nowrap">${d['DATA DE DISTRIBUIÇÃO'] || '—'}</td>
+      <td style="white-space:nowrap">${_fmtData(d['DATA DE DISTRIBUIÇÃO'], true)}</td>
       <td><span class="turma-badge">${d['TURMA/CÂMARA'] || '—'}</span></td>
       <td>${d['RELATOR'] || '—'}</td>
       <td>${d['CLASSE'] || '—'}</td>
       <td>${_statusBadge(d['STATUS DO JULGAMENTO'])}</td>
-      <td style="white-space:nowrap;color:#8b949e">${d['DATA DE CAPTURA'] || '—'}</td>
+      <td style="white-space:nowrap;color:#8b949e">${_fmtData(d['DATA DE CAPTURA'])}</td>
     </tr>
   `).join('');
 }
@@ -316,6 +347,8 @@ async function iniciarAtualizacao() {
   } catch(e) {}
   if (!cpf) { alert('Selecione um advogado válido.'); return; }
 
+  _carregando = true;
+  renderStats();
   document.getElementById('btnAtualizar').disabled = true;
   document.getElementById('progressWrap').style.display = 'block';
 
