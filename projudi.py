@@ -1452,6 +1452,25 @@ def _frame_com_maior_conteudo(page):
     return melhor
 
 
+def _aguardar_frame_conteudo(page, min_chars=2000, timeout_s=10):
+    """Aguarda até o frame com conteúdo ter pelo menos min_chars de HTML."""
+    import time as _time
+    deadline = _time.time() + timeout_s
+    while _time.time() < deadline:
+        frm = _frame_com_maior_conteudo(page)
+        try:
+            sz = int(frm.evaluate("() => document.body ? document.body.innerHTML.length : 0") or 0)
+            if sz >= min_chars:
+                return frm
+        except Exception:
+            pass
+        try:
+            page.wait_for_timeout(400)
+        except Exception:
+            _time.sleep(0.4)
+    return _frame_com_maior_conteudo(page)
+
+
 def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
                                 data_ini=None, data_fim=None):
     """
@@ -1527,11 +1546,8 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
             page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
-        # Aguarda frames filhos do frameset de resultado carregarem
-        try:
-            page.wait_for_timeout(3000)
-        except Exception:
-            pass
+        # Aguarda frame filho do frameset de resultado ter conteúdo real
+        _aguardar_frame_conteudo(page)
     except Exception as e:
         log(f"   ⚠️ Não foi possível submeter formulário ({e}). Extraindo na ordem atual.")
 
@@ -1540,10 +1556,9 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
     total_paginas = None  # descoberto na primeira página
 
     while pagina <= max_paginas:
-        # Após submissão, PROJUDI retorna um frameset com ≈376 chars.
-        # O conteúdo real (tabela de processos) fica num frame filho.
-        # Procura o frame com mais conteúdo (mais tabelas / maior HTML).
-        frame_alvo = _frame_com_maior_conteudo(page)
+        # Após submissão/paginação, PROJUDI retorna um frameset com ≈376 chars.
+        # O conteúdo real fica num frame filho — aguarda ele carregar.
+        frame_alvo = _aguardar_frame_conteudo(page)
         try:
             html = frame_alvo.content()
         except Exception:
@@ -1624,6 +1639,7 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
                 page.wait_for_load_state("networkidle", timeout=15000)
             except Exception:
                 pass
+            _aguardar_frame_conteudo(page)
         except Exception as e:
             log(f"   ⚠️ Erro ao avançar página: {e}")
             break
