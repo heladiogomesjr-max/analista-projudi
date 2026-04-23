@@ -1466,22 +1466,38 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
         log(f"   ❌ Falha ao navegar: {e}")
         return []
 
-    log("   🔃 Aplicando filtros e ordenando por data DESC...")
+    # Localiza o frame que contém o formulário de busca.
+    # O PROJUDI usa frameset — após page.goto, o conteúdo pode estar num sub-frame.
+    def _frame_com_form():
+        for frm in page.frames:
+            try:
+                if int(frm.evaluate("() => document.forms.length") or 0) > 0:
+                    return frm
+            except Exception:
+                pass
+        return page.main_frame
+
+    frame = _frame_com_form()
+    log(f"   📍 Frame do formulário: {(frame.url or 'main')[:80]}")
+
+    log("   🔃 Submetendo formulário (ordenação DESC + filtros de data)...")
+    _CAMPOS_INI = ['dataDistribuicaoInicio', 'dtDistribuicaoInicio',
+                   'periodoInicio', 'ativoDataDistribuicaoInicio',
+                   'ativoDataIni', 'dataIni']
+    _CAMPOS_FIM = ['dataDistribuicaoFim', 'dtDistribuicaoFim',
+                   'periodoFim', 'ativoDataDistribuicaoFim',
+                   'ativoDataFim', 'dataFim']
+    ini_js = (data_ini or '').replace("'", "\\'")
+    fim_js = (data_fim or '').replace("'", "\\'")
+    campos_ini_js = str(_CAMPOS_INI)
+    campos_fim_js = str(_CAMPOS_FIM)
     try:
-        # Nomes comuns do campo de data no PROJUDI/PJE para Struts forms
-        _CAMPOS_INI = ['dataDistribuicaoInicio', 'dtDistribuicaoInicio',
-                       'periodoInicio', 'ativoDataDistribuicaoInicio',
-                       'ativoDataIni', 'dataIni']
-        _CAMPOS_FIM = ['dataDistribuicaoFim', 'dtDistribuicaoFim',
-                       'periodoFim', 'ativoDataDistribuicaoFim',
-                       'ativoDataFim', 'dataFim']
-        ini_js = data_ini or ''
-        fim_js = data_fim or ''
-        campos_ini_js = str(_CAMPOS_INI)
-        campos_fim_js = str(_CAMPOS_FIM)
-        page.evaluate(f"""() => {{
-            var f = document.forms['recursoBuscaForm'];
-            if (!f) return;
+        form_info = frame.evaluate(f"""() => {{
+            var f = document.forms['recursoBuscaForm']
+                 || document.forms['buscaForm']
+                 || document.forms['pesquisaForm']
+                 || document.forms[0];
+            if (!f) return 'SEM_FORM';
             try {{ f['ativosPageNumber'].value = '1'; }} catch(e) {{}}
             try {{ f['ativosSortColumn'].value = 'r.dataDistribuicao'; }} catch(e) {{}}
             try {{ f['ativosSortOrder'].value = 'DESC'; }} catch(e) {{}}
@@ -1489,13 +1505,15 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
             if (ini) {campos_ini_js}.forEach(function(n){{ try{{f[n].value=ini;}}catch(e){{}} }});
             if (fim) {campos_fim_js}.forEach(function(n){{ try{{f[n].value=fim;}}catch(e){{}} }});
             f.submit();
+            return f.name || f.id || 'form[0]';
         }}""")
+        log(f"   📋 Form submetido: {form_info}")
         try:
             page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
     except Exception as e:
-        log(f"   ⚠️ Não foi possível aplicar filtros ({e}). Extraindo na ordem atual.")
+        log(f"   ⚠️ Não foi possível submeter formulário ({e}). Extraindo na ordem atual.")
 
     processos = []
     pagina = 1
@@ -1538,7 +1556,18 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         # Na primeira página descobre o total de páginas pelos links de paginação
         if total_paginas is None:
-            total_paginas = min(_obter_total_paginas(page), max_paginas)
+            try:
+                total_paginas = min(int(frame_alvo.evaluate(r"""() => {
+                    var max = 1;
+                    document.querySelectorAll('a').forEach(function(a) {
+                        var src = (a.getAttribute('href') || '') + (a.getAttribute('onclick') || '');
+                        var m = src.match(/\[.ativosPageNumber.\]\s*\.value\s*=\s*.(\d+)./);
+                        if (m) { var n = parseInt(m[1]); if (n > max) max = n; }
+                    });
+                    return max;
+                }""") or 1), max_paginas)
+            except Exception:
+                total_paginas = 1
         log(f"   📄 Página {pagina}/{total_paginas or '?'}: {len(novos)} processo(s) | Total: {len(processos)}")
 
         if pagina >= (total_paginas or 1):
@@ -1546,8 +1575,10 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         pagina += 1
         try:
-            page.evaluate(f"""() => {{
-                var f = document.forms['recursoBuscaForm'];
+            frame_alvo.evaluate(f"""() => {{
+                var f = document.forms['recursoBuscaForm']
+                     || document.forms['buscaForm']
+                     || document.forms[0];
                 if (!f) return;
                 try {{ f['ativosPageNumber'].value = '{pagina}'; }} catch(e) {{}}
                 f.submit();
@@ -1559,6 +1590,14 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
         except Exception as e:
             log(f"   ⚠️ Erro ao avançar página: {e}")
             break
+
+    # Ordena por DATA DE DISTRIBUIÇÃO DESC em Python como garantia,
+    # independente de o servidor ter aplicado a ordenação corretamente.
+    from datetime import date as _date_cls
+    processos.sort(
+        key=lambda p: _parse_data_dist(p.get('DATA DE DISTRIBUIÇÃO', '')) or _date_cls.min,
+        reverse=True,
+    )
 
     log(f"   ✅ Total: {len(processos)} processo(s) ativo(s) em {pagina} página(s).")
     return processos

@@ -221,6 +221,8 @@ def ler_distribuicoes(advogado_key=None, log=None):
         resp = requests.get(url, params={'adv': adv, 'action': 'distribuicoes'}, timeout=30)
         resp.raise_for_status()
         result = resp.json()
-        return result.get('data', []) if result.get('ok') else []
+        if result.get('ok'):
+            return {'data': result.get('data', []), 'updatedAt': result.get('updatedAt')}
+        return {'data': [], 'updatedAt': None}
     except Exception:
-        return []
+        return {'data': [], 'updatedAt': None}

@@ -2481,8 +2481,9 @@ def api_distribuicoes():
         return jsonify({'ok': False, 'error': 'adv obrigatório'}), 400
     try:
         import sheets as _sh
-        dados = _sh.ler_distribuicoes(advogado_key=adv.lower().replace(' ', '_'))
-        return jsonify({'ok': True, 'data': dados, 'adv': adv})
+        result = _sh.ler_distribuicoes(advogado_key=adv.lower().replace(' ', '_'))
+        return jsonify({'ok': True, 'data': result.get('data', []),
+                        'updatedAt': result.get('updatedAt'), 'adv': adv})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
