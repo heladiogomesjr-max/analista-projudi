@@ -182,28 +182,39 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
     if not rows_clean:
         return True
 
-    payload = {
-        'adv':    advogado_key.upper().replace(' ', '_'),
-        'tab':    'Distribuições 2G',
-        'rows':   rows_clean,
-        'modo':   'upsert',
-        'tipo':   'distribuicoes',
+    base_payload = {
+        'adv':  advogado_key.upper().replace(' ', '_'),
+        'tab':  'Distribuições 2G',
+        'modo': 'upsert',
+        'tipo': 'distribuicoes',
     }
     if sheet_id:
-        payload['sheet_id'] = sheet_id
+        base_payload['sheet_id'] = sheet_id
 
-    try:
-        resp = requests.post(url, json=payload, timeout=60)
-        resp.raise_for_status()
-        result = resp.json()
-        if result.get('ok'):
-            log(f"   📊 Distribuições: {result.get('inseridos', len(rows_clean))} atualizado(s).")
-            return True
-        log(f"   ⚠️ Sheets: {result.get('error', 'erro')}")
-        return False
-    except Exception as e:
-        log(f"   ⚠️ Sheets (distribuições): {e}")
-        return False
+    CHUNK = 200
+    total_chunks = (len(rows_clean) + CHUNK - 1) // CHUNK
+    ok_count = 0
+    for i in range(0, len(rows_clean), CHUNK):
+        chunk = rows_clean[i:i + CHUNK]
+        chunk_num = i // CHUNK + 1
+        payload = dict(base_payload)
+        payload['rows'] = chunk
+        payload['cleanup'] = (chunk_num == total_chunks)
+        try:
+            resp = requests.post(url, json=payload, timeout=180)
+            resp.raise_for_status()
+            result = resp.json()
+            if result.get('ok'):
+                ok_count += result.get('inseridos', len(chunk))
+            else:
+                log(f"   ⚠️ Sheets lote {chunk_num}/{total_chunks}: {result.get('error', 'erro')}")
+                return False
+        except Exception as e:
+            log(f"   ⚠️ Sheets (distribuições) lote {chunk_num}/{total_chunks}: {e}")
+            return False
+
+    log(f"   📊 Distribuições: {ok_count} atualizado(s) em {total_chunks} lote(s).")
+    return True
 
 
 def ler_distribuicoes(advogado_key=None, log=None):

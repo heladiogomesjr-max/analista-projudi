@@ -263,6 +263,7 @@ function doPost(e) {
       }
       var inseridosDist = 0;
       var iStatusDist   = COLUNAS_DIST.indexOf('STATUS DO JULGAMENTO');
+      var doCleanup     = payload.cleanup !== false;
       rows.forEach(function(row) {
         var proc = _normProc(row['NÚMERO DO PROCESSO']);
         if (!proc) return;
@@ -291,8 +292,8 @@ function doPost(e) {
         inseridosDist++;
       });
 
-      // Remove linhas marcadas como Julgado (e cross-check com abas de turmas)
-      if (iStatusDist !== -1) {
+      // Remove linhas marcadas como Julgado (only on final batch)
+      if (doCleanup && iStatusDist !== -1) {
         var julgadosNorm = {};
         ss.getSheets().forEach(function(ws2) {
           var n2 = ws2.getName();
@@ -305,12 +306,18 @@ function doPost(e) {
           });
         });
         var lastR = wsDist.getLastRow();
-        for (var r = lastR; r >= 2; r--) {
-          var rowVals   = wsDist.getRange(r, 1, 1, COLUNAS_DIST.length).getValues()[0];
-          var procNorm  = _normProc(rowVals[0]);
-          var statusCel = String(rowVals[iStatusDist] || '');
-          if (statusCel === 'Julgado' || julgadosNorm[procNorm]) {
-            wsDist.deleteRow(r);
+        if (lastR > 1) {
+          var allDistData = wsDist.getRange(2, 1, lastR - 1, COLUNAS_DIST.length).getValues();
+          var rowsToDelete = [];
+          for (var ri = 0; ri < allDistData.length; ri++) {
+            var procNorm  = _normProc(allDistData[ri][0]);
+            var statusCel = String(allDistData[ri][iStatusDist] || '');
+            if (statusCel === 'Julgado' || julgadosNorm[procNorm]) {
+              rowsToDelete.push(ri + 2);
+            }
+          }
+          for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+            wsDist.deleteRow(rowsToDelete[d]);
           }
         }
       }
