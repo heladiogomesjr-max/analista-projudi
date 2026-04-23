@@ -191,21 +191,23 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
     if sheet_id:
         base_payload['sheet_id'] = sheet_id
 
-    CHUNK = 200
+    CHUNK = 100
     total_chunks = (len(rows_clean) + CHUNK - 1) // CHUNK
     ok_count = 0
     for i in range(0, len(rows_clean), CHUNK):
         chunk = rows_clean[i:i + CHUNK]
         chunk_num = i // CHUNK + 1
         payload = dict(base_payload)
-        payload['rows'] = chunk
-        payload['cleanup'] = (chunk_num == total_chunks)
+        payload['rows']       = chunk
+        payload['batch_mode'] = 'replace_first' if chunk_num == 1 else 'append_rest'
+        payload['cleanup']    = (chunk_num == total_chunks)
         try:
             resp = requests.post(url, json=payload, timeout=180)
             resp.raise_for_status()
             result = resp.json()
             if result.get('ok'):
                 ok_count += result.get('inseridos', len(chunk))
+                log(f"   📊 Sheets lote {chunk_num}/{total_chunks}: {result.get('inseridos', len(chunk))} rows ✓")
             else:
                 log(f"   ⚠️ Sheets lote {chunk_num}/{total_chunks}: {result.get('error', 'erro')}")
                 return False
@@ -213,7 +215,7 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
             log(f"   ⚠️ Sheets (distribuições) lote {chunk_num}/{total_chunks}: {e}")
             return False
 
-    log(f"   📊 Distribuições: {ok_count} atualizado(s) em {total_chunks} lote(s).")
+    log(f"   📊 Distribuições: {ok_count} row(s) em {total_chunks} lote(s).")
     return True
 
 

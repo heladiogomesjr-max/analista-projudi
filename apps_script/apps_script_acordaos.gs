@@ -253,46 +253,60 @@ function doPost(e) {
           .setHorizontalAlignment('center');
         wsDist.setFrozenRows(1);
       }
-      var lastRowDist = wsDist.getLastRow();
-      var idxProcDist = {};
-      if (lastRowDist > 1) {
-        wsDist.getRange(2, 1, lastRowDist - 1, 1).getValues()
-          .forEach(function(r, i) {
-            if (r[0]) idxProcDist[_normProc(r[0])] = i + 2;
-          });
-      }
-      var inseridosDist = 0;
-      var iStatusDist   = COLUNAS_DIST.indexOf('STATUS DO JULGAMENTO');
-      var doCleanup     = payload.cleanup !== false;
+
+      var iStatusDist = COLUNAS_DIST.indexOf('STATUS DO JULGAMENTO');
+      var batchMode   = payload.batch_mode || 'replace_first';
+      var doCleanup   = payload.cleanup !== false;
+
+      // Filtra e monta matriz de dados (sem chamadas à planilha)
+      var dataToWrite = [];
       rows.forEach(function(row) {
-        var proc = _normProc(row['NÚMERO DO PROCESSO']);
-        if (!proc) return;
-        var novaLinha = COLUNAS_DIST.map(function(col) {
+        if (!_normProc(row['NÚMERO DO PROCESSO'])) return;
+        dataToWrite.push(COLUNAS_DIST.map(function(col) {
           return row[col] !== undefined ? row[col] : '';
-        });
-        var targetRow;
-        if (idxProcDist[proc]) {
-          wsDist.getRange(idxProcDist[proc], 1, 1, COLUNAS_DIST.length).setValues([novaLinha]);
-          targetRow = idxProcDist[proc];
-        } else {
-          wsDist.appendRow(novaLinha);
-          targetRow = wsDist.getLastRow();
-          idxProcDist[proc] = targetRow;
-        }
-        if (iStatusDist !== -1) {
-          var statusVal = novaLinha[iStatusDist];
-          var fmtStatus = STATUS_JULGAMENTO_FORMATO[statusVal];
-          if (fmtStatus) {
-            wsDist.getRange(targetRow, iStatusDist + 1)
-              .setBackground(fmtStatus.bg)
-              .setFontColor(fmtStatus.fg)
-              .setFontWeight('bold');
-          }
-        }
-        inseridosDist++;
+        }));
       });
 
-      // Remove linhas marcadas como Julgado (only on final batch)
+      var startRow;
+      if (batchMode === 'replace_first') {
+        // Limpa todas as linhas de dados existentes (1 chamada)
+        var lastExisting = wsDist.getLastRow();
+        if (lastExisting > 1) {
+          wsDist.deleteRows(2, lastExisting - 1);
+        }
+        startRow = 2;
+      } else {
+        // append_rest: escreve após a última linha
+        startRow = wsDist.getLastRow() + 1;
+      }
+
+      // Escreve todo o lote em 1 chamada
+      if (dataToWrite.length > 0) {
+        wsDist.getRange(startRow, 1, dataToWrite.length, COLUNAS_DIST.length)
+          .setValues(dataToWrite);
+      }
+
+      // Formatação do STATUS em batch: setBackgrounds/setFontColors/setFontWeights
+      // aceitam matrizes — 3 chamadas para N linhas
+      if (iStatusDist !== -1 && dataToWrite.length > 0) {
+        var bgMatrix  = dataToWrite.map(function(r) {
+          var f = STATUS_JULGAMENTO_FORMATO[String(r[iStatusDist] || '')];
+          return [f ? f.bg : null];
+        });
+        var fgMatrix  = dataToWrite.map(function(r) {
+          var f = STATUS_JULGAMENTO_FORMATO[String(r[iStatusDist] || '')];
+          return [f ? f.fg : null];
+        });
+        var fwMatrix  = dataToWrite.map(function(r) {
+          return [STATUS_JULGAMENTO_FORMATO[String(r[iStatusDist] || '')] ? 'bold' : 'normal'];
+        });
+        var statusRange = wsDist.getRange(startRow, iStatusDist + 1, dataToWrite.length, 1);
+        statusRange.setBackgrounds(bgMatrix);
+        statusRange.setFontColors(fgMatrix);
+        statusRange.setFontWeights(fwMatrix);
+      }
+
+      // Remove linhas Julgado (only on final batch)
       if (doCleanup && iStatusDist !== -1) {
         var julgadosNorm = {};
         ss.getSheets().forEach(function(ws2) {
