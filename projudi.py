@@ -1527,6 +1527,11 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
             page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
+        # Aguarda frames filhos do frameset de resultado carregarem
+        try:
+            page.wait_for_timeout(3000)
+        except Exception:
+            pass
     except Exception as e:
         log(f"   ⚠️ Não foi possível submeter formulário ({e}). Extraindo na ordem atual.")
 
@@ -1548,12 +1553,13 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
         if not novos:
             # Diagnóstico: loga todos os frames e seus tamanhos
             try:
+                log(f"   🔍 Total frames: {len(page.frames)}")
                 for frm in page.frames:
                     try:
                         sz = len(frm.content())
                         log(f"   🔍 Frame: {(frm.url or 'about:blank')[:100]} ({sz} chars)")
-                    except Exception:
-                        pass
+                    except Exception as _fe:
+                        log(f"   🔍 Frame [ERR]: {(frm.url or 'about:blank')[:80]} → {_fe}")
                 _qualquer_num = re.search(r'\d{7}[\-\.]\d{2}', html)
                 if _qualquer_num:
                     log(f"   🔍 Amostra num: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+40]!r}")
