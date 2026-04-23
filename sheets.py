@@ -159,8 +159,16 @@ COLUNAS_DIST = [
 ]
 
 
-def inserir_distribuicoes(processos, advogado_key=None, log=None):
-    """Envia processos recursais ativos para a aba 'Distribuições 2G' do Sheets."""
+def inserir_distribuicoes(processos, advogado_key=None, log=None, upsert=False):
+    """
+    Envia processos recursais ativos para a aba 'Distribuições 2G' do Sheets.
+
+    upsert=False (padrão / primeira carga):
+        Substitui tudo em lotes de 100 (replace_first + append_rest).
+    upsert=True (modo incremental):
+        Envia apenas novos/alterados; Apps Script atualiza em-lugar sem apagar
+        as linhas intocadas. Cleanup roda ao final para arquivar Julgados.
+    """
     if log is None:
         log = print
     cfg = _cfg()
@@ -180,7 +188,9 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
         if str(p.get('NÚMERO DO PROCESSO') or '').strip()
         and p.get('STATUS DO JULGAMENTO') != 'Julgado'
     ]
-    if not rows_clean:
+
+    # Em modo upsert, mesmo com 0 linhas precisamos disparar o cleanup
+    if not rows_clean and not upsert:
         return True
 
     base_payload = {
@@ -192,6 +202,31 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None):
     if sheet_id:
         base_payload['sheet_id'] = sheet_id
 
+    # ── Modo incremental: 1 request, upsert ──────────────────────────────
+    if upsert:
+        payload = dict(base_payload)
+        payload['rows']       = rows_clean
+        payload['batch_mode'] = 'upsert'
+        payload['cleanup']    = True
+        try:
+            resp = requests.post(url, json=payload, timeout=180)
+            resp.raise_for_status()
+            result = resp.json()
+            if result.get('ok'):
+                ins = result.get('inseridos', len(rows_clean))
+                log(f"   📊 Sheets: {ins} inserido/atualizado(s) (incremental)")
+                return True
+            else:
+                log(f"   ⚠️ Sheets: {result.get('error', 'erro desconhecido')}")
+                return False
+        except requests.exceptions.Timeout:
+            log("   ⚠️ Sheets: timeout ao conectar ao Apps Script (180s)")
+            return False
+        except Exception as e:
+            log(f"   ⚠️ Sheets (upsert): {e}")
+            return False
+
+    # ── Modo completo: lotes de 100, replace_first + append_rest ─────────
     CHUNK = 100
     total_chunks = (len(rows_clean) + CHUNK - 1) // CHUNK
     ok_count = 0

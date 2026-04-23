@@ -873,6 +873,7 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
         job['pct']       = p
         job['subtitulo'] = sub
 
+    existentes_map = {}  # preenchido dentro do with; acessado fora para o diff
     try:
         pct(5, "Abrindo navegador...")
         with sync_playwright() as pw:
@@ -949,10 +950,44 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
             p['DATA DE CAPTURA'] = agora
             p.pop('_url', None)  # remove campo interno antes de enviar ao Sheets
 
-        pct(80, f"Enviando {len(processos)} processo(s) para Sheets...")
+        # ── Calcula diff: só envia o que mudou ───────────────────────────────
+        ativos_list = [p for p in processos if p.get('STATUS DO JULGAMENTO') != 'Julgado']
+
+        if existentes_map:
+            def _precisa_atualizar(p, ex):
+                if not ex.get('DATA DE DISTRIBUIÇÃO') and p.get('DATA DE DISTRIBUIÇÃO'):
+                    return True
+                rel_n = (p.get('RELATOR') or '').strip()
+                rel_e = (ex.get('RELATOR') or '').strip()
+                if rel_n and rel_n not in ('?', '') and rel_e in ('?', ''):
+                    return True
+                tur_n = (p.get('TURMA/CÂMARA') or '').strip()
+                tur_e = (ex.get('TURMA/CÂMARA') or '').strip()
+                if tur_n and tur_n not in ('?', '') and tur_e in ('?', ''):
+                    return True
+                if p.get('STATUS DO JULGAMENTO', 'Pendente') != ex.get('STATUS DO JULGAMENTO', 'Pendente'):
+                    return True
+                return False
+
+            novos       = [p for p in ativos_list if p['NÚMERO DO PROCESSO'] not in existentes_map]
+            atualizados = [p for p in ativos_list
+                           if p['NÚMERO DO PROCESSO'] in existentes_map
+                           and _precisa_atualizar(p, existentes_map[p['NÚMERO DO PROCESSO']])]
+            para_enviar = novos + atualizados
+            sem_mudanca = len(ativos_list) - len(para_enviar)
+            log(f"   📊 Diff: {len(novos)} novo(s), {len(atualizados)} atualizado(s), "
+                f"{sem_mudanca} sem mudança")
+            modo_upsert = True
+        else:
+            para_enviar = ativos_list
+            modo_upsert = False
+
+        pct(80, f"Enviando {len(para_enviar)} processo(s) para Sheets...")
         if _SHEETS_OK:
             try:
-                _sheets_mod.inserir_distribuicoes(processos, advogado_key=advogado_key, log=log)
+                _sheets_mod.inserir_distribuicoes(
+                    para_enviar, advogado_key=advogado_key, log=log, upsert=modo_upsert
+                )
             except Exception as e:
                 log(f"   ⚠️ Sheets: {e}")
 

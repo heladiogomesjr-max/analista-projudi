@@ -278,20 +278,58 @@ function doPost(e) {
           wsDist.deleteRows(2, lastExisting - 1);
         }
         startRow = 2;
+      } else if (batchMode === 'upsert') {
+        // Modo incremental: atualiza linhas existentes in-place e insere novas
+        var lastR = wsDist.getLastRow();
+        var procIdx = {};
+        if (lastR > 1) {
+          wsDist.getRange(2, 1, lastR - 1, 1).getValues().forEach(function(r, i) {
+            if (r[0]) procIdx[_normProc(String(r[0]))] = i + 2;
+          });
+        }
+        var toInsert = [];
+        dataToWrite.forEach(function(rowData) {
+          var pn = _normProc(String(rowData[0] || ''));
+          if (procIdx[pn]) {
+            wsDist.getRange(procIdx[pn], 1, 1, COLUNAS_DIST.length).setValues([rowData]);
+          } else {
+            toInsert.push(rowData);
+          }
+        });
+        if (toInsert.length > 0) {
+          var appendAt = wsDist.getLastRow() + 1;
+          wsDist.getRange(appendAt, 1, toInsert.length, COLUNAS_DIST.length).setValues(toInsert);
+        }
+        // Re-formata coluna STATUS inteira (3 chamadas para toda a aba)
+        if (iStatusDist !== -1) {
+          var totalR = wsDist.getLastRow();
+          if (totalR > 1) {
+            var sRng  = wsDist.getRange(2, iStatusDist + 1, totalR - 1, 1);
+            var sVals = sRng.getValues();
+            sRng.setBackgrounds(sVals.map(function(r) {
+              var f = STATUS_JULGAMENTO_FORMATO[String(r[0]||'')]; return [f ? f.bg : null];
+            }));
+            sRng.setFontColors(sVals.map(function(r) {
+              var f = STATUS_JULGAMENTO_FORMATO[String(r[0]||'')]; return [f ? f.fg : null];
+            }));
+            sRng.setFontWeights(sVals.map(function(r) {
+              return [STATUS_JULGAMENTO_FORMATO[String(r[0]||'')] ? 'bold' : 'normal'];
+            }));
+          }
+        }
       } else {
         // append_rest: escreve após a última linha
         startRow = wsDist.getLastRow() + 1;
       }
 
-      // Escreve todo o lote em 1 chamada
-      if (dataToWrite.length > 0) {
+      // Escreve todo o lote em 1 chamada (replace_first / append_rest)
+      if (batchMode !== 'upsert' && dataToWrite.length > 0) {
         wsDist.getRange(startRow, 1, dataToWrite.length, COLUNAS_DIST.length)
           .setValues(dataToWrite);
       }
 
-      // Formatação do STATUS em batch: setBackgrounds/setFontColors/setFontWeights
-      // aceitam matrizes — 3 chamadas para N linhas
-      if (iStatusDist !== -1 && dataToWrite.length > 0) {
+      // Formatação do STATUS em batch (replace_first / append_rest)
+      if (batchMode !== 'upsert' && iStatusDist !== -1 && dataToWrite.length > 0) {
         var bgMatrix  = dataToWrite.map(function(r) {
           var f = STATUS_JULGAMENTO_FORMATO[String(r[iStatusDist] || '')];
           return [f ? f.bg : null];
