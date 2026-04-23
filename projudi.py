@@ -1326,8 +1326,12 @@ def get_url_distribuicoes_2g(page, log):
     return ""
 
 
+_DIST_HEADERS_LOGGED = False  # loga headers reais apenas uma vez
+
+
 def _extrair_processos_tabela_dist(html_content):
     """Extrai processos de uma página HTML da tabela recursoBusca."""
+    global _DIST_HEADERS_LOGGED
     soup = BeautifulSoup(html_content, 'html.parser')
     processos = []
     _CNJ_RE = re.compile(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}')
@@ -1340,6 +1344,12 @@ def _extrair_processos_tabela_dist(html_content):
             continue
 
         headers = [c.get_text(strip=True).lower() for c in rows[0].find_all(['th', 'td'])]
+        if not _DIST_HEADERS_LOGGED:
+            _DIST_HEADERS_LOGGED = True
+            print(f"[DIST] Headers reais: {headers}", flush=True)
+            if len(rows) > 1:
+                amostra = [c.get_text(' ', strip=True) for c in rows[1].find_all(['td','th'])]
+                print(f"[DIST] Primeira linha: {amostra}", flush=True)
 
         for row in rows[1:]:
             cells = row.find_all(['td', 'th'])
