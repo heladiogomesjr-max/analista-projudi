@@ -1531,6 +1531,21 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         novos = _extrair_processos_tabela_dist(html)
         if not novos:
+            # Diagnóstico: loga URL, tamanho do HTML e amostra para identificar o problema
+            try:
+                log(f"   🔍 URL após submit: {frame_alvo.url[:120]}")
+                soup_dbg = BeautifulSoup(html, 'html.parser')
+                tabelas = soup_dbg.find_all('table')
+                log(f"   🔍 Tabelas encontradas: {len(tabelas)}")
+                # Tenta achar qualquer número com formato de processo
+                _qualquer_num = re.search(r'\d{7}[\-\.]\d{2}', html)
+                if _qualquer_num:
+                    log(f"   🔍 Amostra de número encontrado: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+30]!r}")
+                else:
+                    log(f"   🔍 Nenhum padrão numérico de processo encontrado no HTML ({len(html)} chars)")
+                    log(f"   🔍 Amostra HTML: {html[1000:1500]!r}")
+            except Exception as _e:
+                log(f"   🔍 Erro no diagnóstico: {_e}")
             log(f"   ⚠️ Página {pagina}: nenhum processo extraído — encerrando.")
             break
 
