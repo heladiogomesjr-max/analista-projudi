@@ -816,33 +816,40 @@ def _extrair_cabecalho_2g(page):
     return relator.strip(), orgao.strip()
 
 
-def _detectar_pauta_2g(page):
-    """Retorna True se o processo 2G está pautado para julgamento."""
+def _detectar_status_2g(page):
+    """Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os andamentos visíveis da página."""
     try:
         texto = page.evaluate("() => document.body.innerText.toUpperCase()") or ""
+        # Julgado tem prioridade: JUNTADA DE ACÓRDÃO indica decisão final publicada
+        for kw in ('JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
+                   'JUNTADA DE PROVIMENTO'):  # Câmaras Cíveis usam "provimento"
+            if kw.upper() in texto:
+                return 'Julgado'
+        # Pautado: relator concluiu análise ou processo está em pauta
         for kw in ('EM PAUTA', 'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
                    'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
                    'PROCESSO EM PAUTA'):
             if kw in texto:
-                return True
-        return False
+                return 'Pautado'
+        return 'Pendente'
     except Exception:
-        return False
+        return 'Pendente'
 
 
 def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
     """
-    Navega em cada processo para enriquecer relator/turma e detectar status de pauta.
-    Visita processos sem relator/turma E processos com STATUS DO JULGAMENTO 'Pendente'.
+    Navega em cada processo para enriquecer relator/turma e detectar status.
+    Visita processos sem relator/turma E processos não finalizados (Pendente ou Pautado),
+    pois Pautado pode ter virado Julgado desde a última verificação.
     """
     pendentes = [p for p in processos
                  if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')
-                 or p.get('STATUS DO JULGAMENTO', 'Pendente') == 'Pendente']
+                 or p.get('STATUS DO JULGAMENTO', 'Pendente') in ('Pendente', 'Pautado')]
     if not pendentes:
         return
     if limite:
         pendentes = pendentes[:limite]
-    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + pauta)...")
+    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + status)...")
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -862,7 +869,7 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
                 p['RELATOR'] = relator
             if turma:
                 p['TURMA/CÂMARA'] = turma
-            status = 'Pautado' if _detectar_pauta_2g(page) else 'Pendente'
+            status = _detectar_status_2g(page)
             p['STATUS DO JULGAMENTO'] = status
             log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {status}")
         except Exception as e:

@@ -258,8 +258,15 @@ async function carregarDados() {
       popularFiltroTurma();
       renderStats();
       aplicarFiltros();
+    } else {
+      // Erro do Sheets/backend — mantém dados anteriores e avisa o usuário
+      document.getElementById('lastUpdate').textContent =
+        '⚠️ ' + (j.error || 'Falha ao carregar. Tente novamente.');
     }
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    document.getElementById('lastUpdate').textContent = '⚠️ Erro de conexão. Tente novamente.';
+    console.error(e);
+  }
 }
 
 // ── FILTROS ──────────────────────────────────────────────────

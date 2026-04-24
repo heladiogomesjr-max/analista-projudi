@@ -947,7 +947,10 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
 
         agora = datetime.now().strftime('%d/%m/%Y %H:%M')
         for p in processos:
-            p['DATA DE CAPTURA'] = agora
+            num = p.get('NÚMERO DO PROCESSO', '')
+            # Preserva a data original para processos já existentes — só novos recebem 'agora'
+            data_existente = existentes_map.get(num, {}).get('DATA DE CAPTURA') if existentes_map else None
+            p['DATA DE CAPTURA'] = data_existente if data_existente else agora
             p.pop('_url', None)  # remove campo interno antes de enviar ao Sheets
 
         # ── Calcula diff: só envia o que mudou ───────────────────────────────
@@ -973,10 +976,19 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
             atualizados = [p for p in ativos_list
                            if p['NÚMERO DO PROCESSO'] in existentes_map
                            and _precisa_atualizar(p, existentes_map[p['NÚMERO DO PROCESSO']])]
-            para_enviar = novos + atualizados
-            sem_mudanca = len(ativos_list) - len(para_enviar)
+            # Processos que passaram a Julgado precisam ter o status escrito no Sheets
+            # para o cleanup poder arquivá-los e removê-los da lista ativa.
+            # Ficam fora de ativos_list mas ainda precisam de um upsert final.
+            recem_julgados = [
+                p for p in processos
+                if p.get('STATUS DO JULGAMENTO') == 'Julgado'
+                and p.get('NÚMERO DO PROCESSO') in existentes_map
+                and existentes_map[p['NÚMERO DO PROCESSO']].get('STATUS DO JULGAMENTO') != 'Julgado'
+            ]
+            para_enviar = novos + atualizados + recem_julgados
+            sem_mudanca = len(ativos_list) - len(novos) - len(atualizados)
             log(f"   📊 Diff: {len(novos)} novo(s), {len(atualizados)} atualizado(s), "
-                f"{sem_mudanca} sem mudança")
+                f"{len(recem_julgados)} recém-julgado(s), {sem_mudanca} sem mudança")
             modo_upsert = True
         else:
             para_enviar = ativos_list

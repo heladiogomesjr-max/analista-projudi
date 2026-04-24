@@ -2483,6 +2483,10 @@ def api_distribuicoes():
         import sheets as _sh, json as _json
         adv_key = adv.lower().replace(' ', '_')
         result = _sh.ler_distribuicoes(advogado_key=adv_key)
+        # data=None sinaliza falha (timeout/erro de rede); data=[] significa aba vazia
+        if result.get('data') is None:
+            return jsonify({'ok': False,
+                            'error': 'Falha ao carregar dados do Sheets. Tente novamente em instantes.'}), 503
         total_projudi = 0
         try:
             _cp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cache_dist.json')

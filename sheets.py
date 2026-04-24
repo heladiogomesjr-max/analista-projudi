@@ -186,7 +186,9 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None, upsert=False):
         {col: p.get(col, '') for col in COLUNAS_DIST}
         for p in processos
         if str(p.get('NÚMERO DO PROCESSO') or '').strip()
-        and p.get('STATUS DO JULGAMENTO') != 'Julgado'
+        # Em upsert, inclui Julgado para que o Apps Script escreva o status e o
+        # cleanup possa arquivá-los; em replace_first não faz sentido adicioná-los.
+        and (upsert or p.get('STATUS DO JULGAMENTO') != 'Julgado')
     ]
 
     # Em modo upsert, mesmo com 0 linhas precisamos disparar o cleanup
@@ -276,6 +278,8 @@ def ler_distribuicoes(advogado_key=None, log=None):
                 'updatedAt':     result.get('updatedAt'),
                 'totalJulgados': result.get('totalJulgados', 0),
             }
-        return {'data': [], 'updatedAt': None, 'totalJulgados': 0}
+        # Apps Script retornou ok=false — resposta inválida, não dados vazios
+        return {'data': None, 'updatedAt': None, 'totalJulgados': 0}
     except Exception:
-        return {'data': [], 'updatedAt': None}
+        # Timeout, erro de rede, JSON inválido — distingue de "aba vazia"
+        return {'data': None, 'updatedAt': None, 'totalJulgados': 0}
