@@ -894,9 +894,15 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
                  or p.get('STATUS DO JULGAMENTO', 'Pendente') in ('Pendente', 'Pautado')]
     if not pendentes:
         return
+    # Prioriza processos sem dados: evita re-visitar enriquecidos enquanto
+    # os sem RELATOR/TURMA/DATA ficam sempre no fim da fila
+    pendentes.sort(key=lambda p: (
+        bool(p.get('RELATOR') and p.get('TURMA/CÂMARA') and p.get('DATA DE DISTRIBUIÇÃO')),
+    ))
     if limite:
         pendentes = pendentes[:limite]
-    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + data + status)...")
+    sem_dados = sum(1 for p in pendentes if not p.get('RELATOR') or not p.get('TURMA/CÂMARA'))
+    log(f"🔍 Verificando {len(pendentes)} processo(s) ({sem_dados} sem dados, resto status)...")
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -1514,6 +1520,7 @@ def _extrair_processos_tabela_dist(html_content):
 
             # CLASSE, RELATOR, TURMA — extraídos por posição/conteúdo nas demais células
             relator = classe = turma = ''
+            candidatos = []   # textos que não são número CNJ, data ou turma/orgao
             for t in textos:
                 if not t or _CNJ_RE.search(t) or re.match(r'\d{2}/\d{2}/\d{4}', t):
                     continue
@@ -1522,8 +1529,13 @@ def _extrair_processos_tabela_dist(html_content):
                     turma = t
                 elif any(k in tl for k in ('relator', 'juiz')):
                     relator = t.upper()
-                elif not classe and len(t) > 3:
-                    classe = t
+                elif len(t) > 2:
+                    candidatos.append(t)
+            # Heurística: 1º candidato = classe; 2º = relator (nome sem keyword)
+            if candidatos:
+                classe = candidatos[0]
+            if not relator and len(candidatos) >= 2:
+                relator = candidatos[1].upper()
 
             processos.append({
                 'NÚMERO DO PROCESSO':   numero,
