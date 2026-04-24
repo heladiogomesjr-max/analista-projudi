@@ -65,17 +65,18 @@ input[type=date]:focus{border-color:#388bfd}
 .stat-card.julgado-hist .val{color:#56d364}
 
 /* Table */
-.table-wrap{background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden}
-.table-wrap table{width:100%;border-collapse:collapse;font-size:12px}
-.table-wrap th{background:#21262d;color:#8b949e;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
-.table-wrap td{padding:9px 12px;border-bottom:1px solid #21262d;vertical-align:middle}
+.table-wrap{background:#161b22;border:1px solid #30363d;border-radius:12px;overflow-x:auto}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:12px;min-width:860px}
+.table-wrap th{background:#21262d;color:#8b949e;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;z-index:1}
+.table-wrap td{padding:9px 12px;border-bottom:1px solid #21262d;vertical-align:middle;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.table-wrap td.wrap{white-space:normal;word-break:break-word}
 .table-wrap tr:last-child td{border-bottom:none}
 .table-wrap tr:hover td{background:#1c2128}
 .badge-novo{display:inline-block;background:#0f2d1e;color:#56d364;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px}
-.proc-link{font-family:monospace;font-size:11px;color:#58a6ff;cursor:pointer;text-decoration:none}
+.proc-link{font-family:monospace;font-size:11px;color:#58a6ff;cursor:pointer;text-decoration:none;white-space:nowrap}
 .proc-link:hover{text-decoration:underline}
 .empty{text-align:center;color:#8b949e;padding:48px 24px;font-size:13px}
-.turma-badge{display:inline-block;background:#0d2044;color:#79c0ff;font-size:10px;padding:2px 8px;border-radius:12px;white-space:nowrap}
+.turma-badge{display:inline-block;background:#0d2044;color:#79c0ff;font-size:10px;padding:2px 8px;border-radius:12px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .status-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap}
 .status-pendente{background:#2d2208;color:#e3b341}
 .status-pautado{background:#0d2044;color:#79c0ff}
@@ -370,16 +371,17 @@ function renderTabela(dados) {
   }
   emptyEl.style.display = 'none';
 
+  const _esc = s => (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   tbody.innerHTML = dados.map(d => `
     <tr>
-      <td>
-        <span class="proc-link" title="Clique para copiar" onclick="navigator.clipboard.writeText('${d['NÚMERO DO PROCESSO']}')">${d['NÚMERO DO PROCESSO']}</span>
+      <td style="white-space:nowrap">
+        <span class="proc-link" title="Clique para copiar" onclick="navigator.clipboard.writeText('${_esc(d['NÚMERO DO PROCESSO'])}')">${_esc(d['NÚMERO DO PROCESSO'])}</span>
         ${_isNovo(d['DATA DE CAPTURA']) ? '<span class="badge-novo">NOVO</span>' : ''}
       </td>
       <td style="white-space:nowrap">${_fmtData(d['DATA DE DISTRIBUIÇÃO'], true)}</td>
-      <td><span class="turma-badge">${d['TURMA/CÂMARA'] || '—'}</span></td>
-      <td>${d['RELATOR'] || '—'}</td>
-      <td>${d['CLASSE'] || '—'}</td>
+      <td title="${_esc(d['TURMA/CÂMARA'])}"><span class="turma-badge">${_esc(d['TURMA/CÂMARA'] || '—')}</span></td>
+      <td title="${_esc(d['RELATOR'])}">${_esc(d['RELATOR'] || '—')}</td>
+      <td title="${_esc(d['CLASSE'])}">${_esc(d['CLASSE'] || '—')}</td>
       <td>${_statusBadge(d['STATUS DO JULGAMENTO'])}</td>
       <td style="white-space:nowrap;color:#8b949e">${_fmtData(d['DATA DE CAPTURA'])}</td>
     </tr>

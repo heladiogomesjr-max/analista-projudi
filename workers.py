@@ -925,6 +925,10 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
                             p['RELATOR'] = existing['RELATOR']
                         if not p.get('TURMA/CÂMARA') and existing.get('TURMA/CÂMARA'):
                             p['TURMA/CÂMARA'] = existing['TURMA/CÂMARA']
+                        if not p.get('CLASSE') and existing.get('CLASSE'):
+                            p['CLASSE'] = existing['CLASSE']
+                        if not p.get('DATA DE DISTRIBUIÇÃO') and existing.get('DATA DE DISTRIBUIÇÃO'):
+                            p['DATA DE DISTRIBUIÇÃO'] = existing['DATA DE DISTRIBUIÇÃO']
                         if not p.get('STATUS DO JULGAMENTO'):
                             p['STATUS DO JULGAMENTO'] = existing.get('STATUS DO JULGAMENTO', 'Pendente')
 
@@ -960,13 +964,18 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
             def _precisa_atualizar(p, ex):
                 if not ex.get('DATA DE DISTRIBUIÇÃO') and p.get('DATA DE DISTRIBUIÇÃO'):
                     return True
+                # Detecta qualquer mudança real nos campos enriquecidos
                 rel_n = (p.get('RELATOR') or '').strip()
                 rel_e = (ex.get('RELATOR') or '').strip()
-                if rel_n and rel_n not in ('?', '') and rel_e in ('?', ''):
+                if rel_n and rel_n != rel_e:
                     return True
                 tur_n = (p.get('TURMA/CÂMARA') or '').strip()
                 tur_e = (ex.get('TURMA/CÂMARA') or '').strip()
-                if tur_n and tur_n not in ('?', '') and tur_e in ('?', ''):
+                if tur_n and tur_n != tur_e:
+                    return True
+                cls_n = (p.get('CLASSE') or '').strip()
+                cls_e = (ex.get('CLASSE') or '').strip()
+                if cls_n and cls_n != cls_e:
                     return True
                 if p.get('STATUS DO JULGAMENTO', 'Pendente') != ex.get('STATUS DO JULGAMENTO', 'Pendente'):
                     return True

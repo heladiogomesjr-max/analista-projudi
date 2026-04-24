@@ -813,6 +813,10 @@ def _extrair_cabecalho_2g(page, debug_log=None):
         pass
     relator   = _campo_pagina(page, ["Relator:", "Relator"])
     orgao     = _campo_pagina(page, ["Órgão Julgador:", "Órgão Julgador", "Órgão:", "Turma:"])
+    classe    = _campo_pagina(page, [
+        "Classe:", "Classe Processual:", "Espécie:", "Tipo Recursal:",
+        "Natureza:", "Tipo:", "Classe do Processo:",
+    ])
     data_raw  = _campo_pagina(page, [
         "Data de Distribuição:", "Data Distribuição:", "Distribuição:",
         "Distribuído em:", "Dt. Distribuição:", "Dt Distribuição:",
@@ -877,7 +881,11 @@ def _extrair_cabecalho_2g(page, debug_log=None):
         except Exception as e:
             debug_log(f"     [DATA-DEBUG] erro: {e}")
 
-    return relator.strip(), orgao.strip(), data_dist
+    # Filtra valores claramente inválidos para CLASSE (nomes de partes são longos)
+    if classe and len(classe) > 80:
+        classe = ''
+
+    return relator.strip(), orgao.strip(), data_dist, classe.strip()
 
 
 def _detectar_status_2g(page):
@@ -958,18 +966,20 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
                     continue
             _sem_data = not p.get('DATA DE DISTRIBUIÇÃO')
             _dlog = log if (_sem_data and _debug_data_count < 5) else None
-            relator, turma, data_dist = _extrair_cabecalho_2g(page, debug_log=_dlog)
+            relator, turma, data_dist, classe = _extrair_cabecalho_2g(page, debug_log=_dlog)
             if _sem_data and not data_dist and _dlog:
                 _debug_data_count += 1
             if relator:
                 p['RELATOR'] = relator
             if turma:
                 p['TURMA/CÂMARA'] = turma
+            if classe:
+                p['CLASSE'] = classe
             if data_dist and not p.get('DATA DE DISTRIBUIÇÃO'):
                 p['DATA DE DISTRIBUIÇÃO'] = data_dist
             status = _detectar_status_2g(page)
             p['STATUS DO JULGAMENTO'] = status
-            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {data_dist or '—'} | {status}")
+            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {classe or '—'} | {data_dist or '—'} | {status}")
         except Exception as e:
             log(f"   [{i+1}/{len(pendentes)}] {num}: erro — {e}")
 
@@ -1280,7 +1290,7 @@ def analisar_processo(page, numero, url_2g, url_1g, log,
             except Exception:
                 time.sleep(2)
 
-        relator_juiz, turma_vara = _extrair_cabecalho_2g(page)
+        relator_juiz, turma_vara, *_ = _extrair_cabecalho_2g(page)
         log(f"   2g: {turma_vara or '?'} | {relator_juiz or '?'}")
 
         # Filtro por relator — antes de baixar qualquer documento
