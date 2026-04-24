@@ -827,24 +827,43 @@ def _extrair_cabecalho_2g(page):
 
 def _detectar_status_2g(page):
     """
-    Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os andamentos do processo.
-    Clica na aba 'Movimentações' antes de ler o texto, pois os andamentos só
-    ficam visíveis após esse clique.
+    Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os eventos da aba Movimentações.
+    Clica na aba, depois lê div#includeContent table.resultTable tbody — 4ª célula (td[3])
+    de cada linha visível contém o nome do evento.
     """
     try:
         _clicar_aba(page, 'Movimentações')
-        texto = page.evaluate("() => document.body.innerText.toUpperCase()") or ""
-        # Julgado tem prioridade: JUNTADA DE ACÓRDÃO indica decisão final publicada
-        for kw in ('JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
-                   'JUNTADA DE PROVIMENTO'):  # Câmaras Cíveis usam "provimento"
-            if kw.upper() in texto:
+        html  = page.content()
+        soup  = BeautifulSoup(html, 'html.parser')
+        tbody = soup.select_one('div#includeContent table.resultTable tbody')
+        if tbody is None:
+            return 'Pendente'
+
+        _KW_JULGADO = (
+            'JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
+            'JUNTADA DE PROVIMENTO',
+        )
+        _KW_PAUTADO = (
+            'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
+            'EM PAUTA', 'PROCESSO EM PAUTA',
+            'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
+        )
+
+        for linha in tbody.find_all('tr'):
+            if 'display:none' in linha.get('style', '').replace(' ', ''):
+                continue
+            celulas = linha.find_all('td')
+            if len(celulas) < 4:
+                continue
+            textos = list(celulas[3].stripped_strings)
+            if not textos:
+                continue
+            evento = textos[0].upper()
+            if any(kw in evento for kw in _KW_JULGADO):
                 return 'Julgado'
-        # Pautado: relator concluiu análise ou processo está em pauta
-        for kw in ('EM PAUTA', 'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
-                   'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
-                   'PROCESSO EM PAUTA'):
-            if kw in texto:
+            if any(kw in evento for kw in _KW_PAUTADO):
                 return 'Pautado'
+
         return 'Pendente'
     except Exception:
         return 'Pendente'
