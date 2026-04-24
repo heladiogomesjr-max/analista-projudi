@@ -805,7 +805,7 @@ def _extrair_movimentacoes(page, tipos, url_retorno, log, orgao=""):
 # ══════════════════════════════════════════════════════════════
 # EXTRAÇÃO DE CABEÇALHO
 # ══════════════════════════════════════════════════════════════
-def _extrair_cabecalho_2g(page):
+def _extrair_cabecalho_2g(page, debug_log=None):
     """Relator, órgão julgador e data de distribuição da página individual do processo."""
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
@@ -817,27 +817,65 @@ def _extrair_cabecalho_2g(page):
         "Data de Distribuição:", "Data Distribuição:", "Distribuição:",
         "Distribuído em:", "Dt. Distribuição:", "Dt Distribuição:",
         "Data de Registro:", "Data Registro:",
+        "Data:", "Dt.:", "Autuação:", "Autuado em:",
+        "Registro:", "Data do Registro:",
     ])
     data_dist = ''
     if data_raw:
         m = re.search(r'\d{2}/\d{2}/\d{4}', data_raw)
         data_dist = m.group(0) if m else ''
 
-    # Fallback: varre a página inteira procurando data dentro de elemento que
-    # contenha "distribui" no texto (cobre label+valor na mesma célula)
+    # Fallbacks via BeautifulSoup (compartilha parse)
+    _soup = None
     if not data_dist:
         try:
-            html = page.content()
-            soup = BeautifulSoup(html, 'html.parser')
-            for tag in soup.find_all(['td', 'th', 'span', 'div', 'li', 'p', 'b', 'strong']):
+            _soup = BeautifulSoup(page.content(), 'html.parser')
+            # Fallback 1: elemento com keyword de data que contenha data no texto
+            _KW_DATA = ('distribui', 'registro', 'autuaç', 'autuac', 'protocolo')
+            for tag in _soup.find_all(['td', 'th', 'span', 'div', 'li', 'p', 'b', 'strong', 'label']):
                 t = tag.get_text(' ', strip=True)
-                if 'distribui' in t.lower() and len(t) < 300:
+                if any(k in t.lower() for k in _KW_DATA) and len(t) < 300:
                     m = re.search(r'\d{2}/\d{2}/\d{4}', t)
                     if m:
                         data_dist = m.group(0)
                         break
         except Exception:
             pass
+
+    # Fallback 2: qualquer label curto terminando em ':' seguido de td com data
+    if not data_dist and _soup:
+        try:
+            for tag in _soup.find_all(['td', 'th', 'label', 'b', 'strong', 'span']):
+                t = tag.get_text(strip=True)
+                if 0 < len(t) < 60 and t.endswith(':'):
+                    prox = tag.find_next_sibling()
+                    if prox:
+                        v = prox.get_text(strip=True)
+                        m = re.search(r'^\d{2}/\d{2}/\d{4}$', v)
+                        if m:
+                            data_dist = m.group(0)
+                            if debug_log:
+                                debug_log(f"     [DATA-fb2] label='{t}' → {data_dist}")
+                            break
+        except Exception:
+            pass
+
+    # Debug: loga todo texto com data encontrado na página (somente se solicitado)
+    if not data_dist and debug_log:
+        try:
+            if _soup is None:
+                _soup = BeautifulSoup(page.content(), 'html.parser')
+            datas_ctx = []
+            _DATE_RE = re.compile(r'\d{2}/\d{2}/\d{4}')
+            for tag in _soup.find_all(['td', 'th', 'span', 'div', 'li', 'p', 'b', 'strong', 'label', 'h1', 'h2', 'h3']):
+                t = tag.get_text(' ', strip=True)
+                if _DATE_RE.search(t) and 2 < len(t) < 200 and not tag.find_all(['td', 'th']):
+                    datas_ctx.append(t[:120])
+            debug_log(f"     [DATA-DEBUG] {len(datas_ctx)} element(s) com data. Primeiros:")
+            for ctx in datas_ctx[:8]:
+                debug_log(f"       · {ctx!r}")
+        except Exception as e:
+            debug_log(f"     [DATA-DEBUG] erro: {e}")
 
     return relator.strip(), orgao.strip(), data_dist
 
@@ -903,6 +941,7 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
         pendentes = pendentes[:limite]
     sem_dados = sum(1 for p in pendentes if not p.get('RELATOR') or not p.get('TURMA/CÂMARA'))
     log(f"🔍 Verificando {len(pendentes)} processo(s) ({sem_dados} sem dados, resto status)...")
+    _debug_data_count = 0  # loga HTML para diagnóstico da data nos primeiros 5 sem data
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -917,7 +956,11 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
                 ok = _navegar_2g(page, num, url_busca_2g, log)
                 if not ok:
                     continue
-            relator, turma, data_dist = _extrair_cabecalho_2g(page)
+            _sem_data = not p.get('DATA DE DISTRIBUIÇÃO')
+            _dlog = log if (_sem_data and _debug_data_count < 5) else None
+            relator, turma, data_dist = _extrair_cabecalho_2g(page, debug_log=_dlog)
+            if _sem_data and not data_dist and _dlog:
+                _debug_data_count += 1
             if relator:
                 p['RELATOR'] = relator
             if turma:
