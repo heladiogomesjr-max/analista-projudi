@@ -826,8 +826,13 @@ def _extrair_cabecalho_2g(page):
 
 
 def _detectar_status_2g(page):
-    """Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os andamentos visíveis da página."""
+    """
+    Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os andamentos do processo.
+    Clica na aba 'Movimentações' antes de ler o texto, pois os andamentos só
+    ficam visíveis após esse clique.
+    """
     try:
+        _clicar_aba(page, 'Movimentações')
         texto = page.evaluate("() => document.body.innerText.toUpperCase()") or ""
         # Julgado tem prioridade: JUNTADA DE ACÓRDÃO indica decisão final publicada
         for kw in ('JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
