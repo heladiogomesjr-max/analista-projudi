@@ -218,19 +218,23 @@ function _headers() {
 }
 
 // ── INIT ─────────────────────────────────────────────────────
-async function mostrarConteudo() {
+async function mostrarConteudo(listaUsuarios) {
   document.getElementById('loginWrap').style.display  = 'none';
   document.getElementById('conteudo').style.display   = 'block';
-  await carregarAdvogados();
+  await carregarAdvogados(listaUsuarios);
 }
 
-async function carregarAdvogados() {
+async function carregarAdvogados(lista) {
   try {
-    const r = await fetch(API + '/usuarios', {headers: _headers()});
-    const j = await r.json();
+    if (!Array.isArray(lista)) {
+      const r = await fetch(API + '/usuarios', {headers: _headers()});
+      const j = await r.json();
+      lista = j.usuarios || j || [];
+    }
+    if (!Array.isArray(lista) || !lista.length) return;
     const sel = document.getElementById('selAdv');
     sel.innerHTML = '';
-    (j.usuarios || j || []).forEach(u => {
+    lista.forEach(u => {
       const opt = document.createElement('option');
       opt.value = (u.label || u.cpf).toLowerCase().replace(/ /g,'_');
       opt.textContent = u.nome || u.label || u.cpf;
@@ -452,7 +456,12 @@ function resetUI() {
   try {
     const r = await fetch(API + '/usuarios', {headers: _headers()});
     if (r.status === 401) { token = ''; localStorage.removeItem('analista_token'); return; }
-    mostrarConteudo();
+    const j = await r.json();
+    const lista = j.usuarios || j;
+    // Só exibe conteúdo se a resposta for uma lista válida de usuários
+    if (Array.isArray(lista) && lista.length) {
+      mostrarConteudo(lista);
+    }
   } catch(e) {}
 })();
 </script>
