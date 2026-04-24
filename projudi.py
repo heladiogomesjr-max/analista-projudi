@@ -969,12 +969,17 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
             relator, turma, data_dist, classe = _extrair_cabecalho_2g(page, debug_log=_dlog)
             if _sem_data and not data_dist and _dlog:
                 _debug_data_count += 1
-            if relator:
+            # Página carregou se ao menos um campo foi extraído (classe é o mais confiável)
+            _page_ok = bool(relator or turma or classe or data_dist)
+            # Sempre grava RELATOR e CLASSE quando a página carregou — mesmo vazio,
+            # para sobrescrever valores errados (nomes de partes) que o bug antigo gravou.
+            if _page_ok:
+                p['RELATOR'] = relator
+                p['CLASSE']  = classe
+            elif relator:
                 p['RELATOR'] = relator
             if turma:
                 p['TURMA/CÂMARA'] = turma
-            if classe:
-                p['CLASSE'] = classe
             if data_dist and not p.get('DATA DE DISTRIBUIÇÃO'):
                 p['DATA DE DISTRIBUIÇÃO'] = data_dist
             status = _detectar_status_2g(page)

@@ -964,10 +964,11 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
             def _precisa_atualizar(p, ex):
                 if not ex.get('DATA DE DISTRIBUIÇÃO') and p.get('DATA DE DISTRIBUIÇÃO'):
                     return True
-                # Detecta qualquer mudança real nos campos enriquecidos
+                # Detecta qualquer mudança real nos campos enriquecidos.
+                # Inclui '' != "valor_errado" para limpar dados corrompidos.
                 rel_n = (p.get('RELATOR') or '').strip()
                 rel_e = (ex.get('RELATOR') or '').strip()
-                if rel_n and rel_n != rel_e:
+                if rel_n != rel_e:
                     return True
                 tur_n = (p.get('TURMA/CÂMARA') or '').strip()
                 tur_e = (ex.get('TURMA/CÂMARA') or '').strip()
@@ -975,7 +976,7 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
                     return True
                 cls_n = (p.get('CLASSE') or '').strip()
                 cls_e = (ex.get('CLASSE') or '').strip()
-                if cls_n and cls_n != cls_e:
+                if cls_n != cls_e:
                     return True
                 if p.get('STATUS DO JULGAMENTO', 'Pendente') != ex.get('STATUS DO JULGAMENTO', 'Pendente'):
                     return True
