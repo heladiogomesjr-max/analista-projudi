@@ -1419,25 +1419,20 @@ def get_url_distribuicoes_2g(page, log):
 
 
 def _extrair_processos_tabela_dist(html_content):
-    """Extrai processos de uma página HTML da tabela recursoBusca (class='resultTable')."""
+    """Extrai processos de uma página HTML da tabela recursoBusca."""
     soup = BeautifulSoup(html_content, 'html.parser')
     processos = []
     _CNJ_RE = re.compile(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}')
 
-    # Localiza a tabela de resultados pela classe conhecida; fallback para qualquer tabela com CNJ
-    tabela = soup.find('table', class_='resultTable')
-    if tabela is None:
-        for t in soup.find_all('table'):
-            if _CNJ_RE.search(t.get_text()):
-                tabela = t
-                break
-    if tabela is None:
-        return processos
+    for tabela in soup.find_all('table'):
+        if not _CNJ_RE.search(tabela.get_text()):
+            continue
+        tbody = tabela.find('tbody') or tabela
+        linhas = tbody.find_all('tr')
+        if len(linhas) < 1:
+            continue
 
-    tbody = tabela.find('tbody') or tabela
-    linhas = tbody.find_all('tr')
-
-    for row in linhas:
+        for row in linhas:
         cells = row.find_all('td', recursive=False)
         if not cells:
             continue
@@ -1516,11 +1511,11 @@ def _extrair_processos_tabela_dist(html_content):
         processos.append({
             'NÚMERO DO PROCESSO':   numero,
             'DATA DE DISTRIBUIÇÃO': data_dist,
-                'RELATOR':              relator,
-                'TURMA/CÂMARA':         turma,
-                'CLASSE':               classe,
-                '_url':                 url_proc,
-            })
+            'RELATOR':              relator,
+            'TURMA/CÂMARA':         turma,
+            'CLASSE':               classe,
+            '_url':                 url_proc,
+        })
 
         if processos:
             break
