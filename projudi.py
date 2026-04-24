@@ -806,14 +806,23 @@ def _extrair_movimentacoes(page, tipos, url_retorno, log, orgao=""):
 # EXTRAÇÃO DE CABEÇALHO
 # ══════════════════════════════════════════════════════════════
 def _extrair_cabecalho_2g(page):
-    """Relator e órgão julgador — garante networkidle antes (igual ao projudi_bot.py)."""
+    """Relator, órgão julgador e data de distribuição da página individual do processo."""
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
         pass
-    relator = _campo_pagina(page, ["Relator:", "Relator"])
-    orgao   = _campo_pagina(page, ["Órgão Julgador:", "Órgão Julgador", "Órgão:", "Turma:"])
-    return relator.strip(), orgao.strip()
+    relator   = _campo_pagina(page, ["Relator:", "Relator"])
+    orgao     = _campo_pagina(page, ["Órgão Julgador:", "Órgão Julgador", "Órgão:", "Turma:"])
+    data_raw  = _campo_pagina(page, [
+        "Data de Distribuição:", "Data Distribuição:", "Distribuição:",
+        "Distribuído em:", "Dt. Distribuição:", "Dt Distribuição:",
+        "Data de Registro:", "Data Registro:",
+    ])
+    data_dist = ''
+    if data_raw:
+        m = re.search(r'\d{2}/\d{2}/\d{4}', data_raw)
+        data_dist = m.group(0) if m else ''
+    return relator.strip(), orgao.strip(), data_dist
 
 
 def _detectar_status_2g(page):
@@ -836,20 +845,21 @@ def _detectar_status_2g(page):
         return 'Pendente'
 
 
-def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
+def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
     """
-    Navega em cada processo para enriquecer relator/turma e detectar status.
-    Visita processos sem relator/turma E processos não finalizados (Pendente ou Pautado),
-    pois Pautado pode ter virado Julgado desde a última verificação.
+    Navega em cada processo para enriquecer relator/turma/data e detectar status.
+    Visita processos sem relator/turma OU sem data de distribuição OU não finalizados
+    (Pendente ou Pautado), pois Pautado pode ter virado Julgado desde a última verificação.
     """
     pendentes = [p for p in processos
                  if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')
+                 or not p.get('DATA DE DISTRIBUIÇÃO')
                  or p.get('STATUS DO JULGAMENTO', 'Pendente') in ('Pendente', 'Pautado')]
     if not pendentes:
         return
     if limite:
         pendentes = pendentes[:limite]
-    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + status)...")
+    log(f"🔍 Verificando {len(pendentes)} processo(s) (relator + data + status)...")
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -864,14 +874,16 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=150):
                 ok = _navegar_2g(page, num, url_busca_2g, log)
                 if not ok:
                     continue
-            relator, turma = _extrair_cabecalho_2g(page)
+            relator, turma, data_dist = _extrair_cabecalho_2g(page)
             if relator:
                 p['RELATOR'] = relator
             if turma:
                 p['TURMA/CÂMARA'] = turma
+            if data_dist and not p.get('DATA DE DISTRIBUIÇÃO'):
+                p['DATA DE DISTRIBUIÇÃO'] = data_dist
             status = _detectar_status_2g(page)
             p['STATUS DO JULGAMENTO'] = status
-            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {status}")
+            log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {data_dist or '—'} | {status}")
         except Exception as e:
             log(f"   [{i+1}/{len(pendentes)}] {num}: erro — {e}")
 
@@ -1402,6 +1414,9 @@ def _extrair_processos_tabela_dist(html_content):
         # recursive=False: ignora td/th de tabelas aninhadas (ex: célula de partes)
         headers = [c.get_text(strip=True).lower()
                    for c in rows[0].find_all(['th', 'td'], recursive=False)]
+        if not processos:  # loga cabeçalhos apenas na primeira tabela processada
+            import sys as _sys
+            print(f"[DIST] cabeçalhos detectados: {headers}", flush=True)
 
         for row in rows[1:]:
             # recursive=False garante alinhamento correto com os headers
