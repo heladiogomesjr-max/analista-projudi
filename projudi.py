@@ -822,6 +822,23 @@ def _extrair_cabecalho_2g(page):
     if data_raw:
         m = re.search(r'\d{2}/\d{2}/\d{4}', data_raw)
         data_dist = m.group(0) if m else ''
+
+    # Fallback: varre a página inteira procurando data dentro de elemento que
+    # contenha "distribui" no texto (cobre label+valor na mesma célula)
+    if not data_dist:
+        try:
+            html = page.content()
+            soup = BeautifulSoup(html, 'html.parser')
+            for tag in soup.find_all(['td', 'th', 'span', 'div', 'li', 'p', 'b', 'strong']):
+                t = tag.get_text(' ', strip=True)
+                if 'distribui' in t.lower() and len(t) < 300:
+                    m = re.search(r'\d{2}/\d{2}/\d{4}', t)
+                    if m:
+                        data_dist = m.group(0)
+                        break
+        except Exception:
+            pass
+
     return relator.strip(), orgao.strip(), data_dist
 
 
