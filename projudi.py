@@ -1433,89 +1433,89 @@ def _extrair_processos_tabela_dist(html_content):
             continue
 
         for row in linhas:
-        cells = row.find_all('td', recursive=False)
-        if not cells:
-            continue
-        textos = [c.get_text(' ', strip=True) for c in cells]
-
-        # Número do processo — <a class="link"><em title="NNNNNNN-NN...">
-        numero = ''
-        url_proc = ''
-        a_link = row.find('a', class_='link')
-        if a_link:
-            em = a_link.find('em')
-            numero = (em.get('title', '') if em else '').strip()
-            if not numero:
-                numero = a_link.get_text(strip=True)
-            href = a_link.get('href', '')
-            if href and not href.startswith('javascript'):
-                url_proc = href if href.startswith('http') else BASE + href
-        # Fallback: qualquer link cujo texto bate no padrão CNJ
-        if not numero:
-            for cell in cells:
-                for a in cell.find_all('a'):
-                    t = a.get_text(strip=True)
-                    if _CNJ_RE.match(t):
-                        numero = t
-                        href = a.get('href', '')
-                        if href and not href.startswith('javascript'):
-                            url_proc = href if href.startswith('http') else BASE + href
-                        break
-                if numero:
-                    break
-        if not numero:
-            for t in textos:
-                m = _CNJ_RE.search(t)
-                if m:
-                    numero = m.group(0)
-                    break
-        if not numero:
-            continue
-
-        # DATA DE DISTRIBUIÇÃO: 5ª coluna (índice 4) — nowrap="nowrap" é marcador adicional
-        data_dist = ''
-        if len(cells) >= 5:
-            td_data = cells[4]
-            raw = td_data.get_text(' ', strip=True)
-            m = re.search(r'\d{2}/\d{2}/\d{4}', raw)
-            if m:
-                data_dist = m.group(0)
-        # Fallback: td com nowrap="nowrap" que contenha data
-        if not data_dist:
-            td_nw = row.find('td', attrs={'nowrap': 'nowrap'})
-            if td_nw:
-                m = re.search(r'\d{2}/\d{2}/\d{4}', td_nw.get_text())
-                if m:
-                    data_dist = m.group(0)
-        # Fallback final: qualquer célula com data dd/MM/yyyy
-        if not data_dist:
-            for t in textos:
-                m = re.search(r'\d{2}/\d{2}/\d{4}', t)
-                if m:
-                    data_dist = m.group(0)
-                    break
-
-        # CLASSE, RELATOR, TURMA — extraídos por posição/conteúdo nas demais células
-        relator = classe = turma = ''
-        for t in textos:
-            if not t or _CNJ_RE.search(t) or re.match(r'\d{2}/\d{2}/\d{4}', t):
+            cells = row.find_all('td', recursive=False)
+            if not cells:
                 continue
-            tl = t.lower()
-            if any(k in tl for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
-                turma = t
-            elif any(k in tl for k in ('relator', 'juiz')):
-                relator = t.upper()
-            elif not classe and len(t) > 3:
-                classe = t
+            textos = [c.get_text(' ', strip=True) for c in cells]
 
-        processos.append({
-            'NÚMERO DO PROCESSO':   numero,
-            'DATA DE DISTRIBUIÇÃO': data_dist,
-            'RELATOR':              relator,
-            'TURMA/CÂMARA':         turma,
-            'CLASSE':               classe,
-            '_url':                 url_proc,
-        })
+            # Número do processo — <a class="link"><em title="NNNNNNN-NN...">
+            numero = ''
+            url_proc = ''
+            a_link = row.find('a', class_='link')
+            if a_link:
+                em = a_link.find('em')
+                numero = (em.get('title', '') if em else '').strip()
+                if not numero:
+                    numero = a_link.get_text(strip=True)
+                href = a_link.get('href', '')
+                if href and not href.startswith('javascript'):
+                    url_proc = href if href.startswith('http') else BASE + href
+            # Fallback: qualquer link cujo texto bate no padrão CNJ
+            if not numero:
+                for cell in cells:
+                    for a in cell.find_all('a'):
+                        t = a.get_text(strip=True)
+                        if _CNJ_RE.match(t):
+                            numero = t
+                            href = a.get('href', '')
+                            if href and not href.startswith('javascript'):
+                                url_proc = href if href.startswith('http') else BASE + href
+                            break
+                    if numero:
+                        break
+            if not numero:
+                for t in textos:
+                    m = _CNJ_RE.search(t)
+                    if m:
+                        numero = m.group(0)
+                        break
+            if not numero:
+                continue
+
+            # DATA DE DISTRIBUIÇÃO: 5ª coluna (índice 4) — nowrap="nowrap" é marcador adicional
+            data_dist = ''
+            if len(cells) >= 5:
+                td_data = cells[4]
+                raw = td_data.get_text(' ', strip=True)
+                m = re.search(r'\d{2}/\d{2}/\d{4}', raw)
+                if m:
+                    data_dist = m.group(0)
+            # Fallback: td com nowrap="nowrap" que contenha data
+            if not data_dist:
+                td_nw = row.find('td', attrs={'nowrap': 'nowrap'})
+                if td_nw:
+                    m = re.search(r'\d{2}/\d{2}/\d{4}', td_nw.get_text())
+                    if m:
+                        data_dist = m.group(0)
+            # Fallback final: qualquer célula com data dd/MM/yyyy
+            if not data_dist:
+                for t in textos:
+                    m = re.search(r'\d{2}/\d{2}/\d{4}', t)
+                    if m:
+                        data_dist = m.group(0)
+                        break
+
+            # CLASSE, RELATOR, TURMA — extraídos por posição/conteúdo nas demais células
+            relator = classe = turma = ''
+            for t in textos:
+                if not t or _CNJ_RE.search(t) or re.match(r'\d{2}/\d{2}/\d{4}', t):
+                    continue
+                tl = t.lower()
+                if any(k in tl for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
+                    turma = t
+                elif any(k in tl for k in ('relator', 'juiz')):
+                    relator = t.upper()
+                elif not classe and len(t) > 3:
+                    classe = t
+
+            processos.append({
+                'NÚMERO DO PROCESSO':   numero,
+                'DATA DE DISTRIBUIÇÃO': data_dist,
+                'RELATOR':              relator,
+                'TURMA/CÂMARA':         turma,
+                'CLASSE':               classe,
+                '_url':                 url_proc,
+            })
 
         if processos:
             break
