@@ -852,16 +852,12 @@ def _detectar_status_2g(page):
         for linha in tbody.find_all('tr'):
             if 'display:none' in linha.get('style', '').replace(' ', ''):
                 continue
-            celulas = linha.find_all('td')
-            if len(celulas) < 4:
+            texto_linha = ' '.join(linha.stripped_strings).upper()
+            if not texto_linha:
                 continue
-            textos = list(celulas[3].stripped_strings)
-            if not textos:
-                continue
-            evento = textos[0].upper()
-            if any(kw in evento for kw in _KW_JULGADO):
+            if any(kw in texto_linha for kw in _KW_JULGADO):
                 return 'Julgado'
-            if any(kw in evento for kw in _KW_PAUTADO):
+            if any(kw in texto_linha for kw in _KW_PAUTADO):
                 return 'Pautado'
 
         return 'Pendente'
