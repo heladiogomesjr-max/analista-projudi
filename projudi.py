@@ -888,68 +888,111 @@ def _extrair_cabecalho_2g(page, debug_log=None):
     return relator.strip(), orgao.strip(), data_dist, classe.strip()
 
 
-def _detectar_status_2g(page):
+def _detectar_status_2g(page, debug_log=None):
     """
     Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os eventos da aba Movimentações.
-    Clica na aba, depois lê div#includeContent table.resultTable tbody — 4ª célula (td[3])
-    de cada linha visível contém o nome do evento.
+    Aceita debug_log para diagnosticar falhas de seletor nos primeiros processos.
     """
+    _KW_JULGADO = (
+        'JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
+        'JUNTADA DE PROVIMENTO', 'ACÓRDÃO PUBLICADO', 'ACORDAO PUBLICADO',
+    )
+    _KW_PAUTADO = (
+        'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
+        'EM PAUTA', 'PROCESSO EM PAUTA',
+        'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
+        'INCLUÍDO EM PAUTA', 'INCLUIDO EM PAUTA',
+    )
     try:
-        _clicar_aba(page, 'Movimentações')
-        html  = page.content()
-        soup  = BeautifulSoup(html, 'html.parser')
-        tbody = soup.select_one('div#includeContent table.resultTable tbody')
+        clicou = _clicar_aba(page, 'Movimentações')
+        if debug_log:
+            debug_log(f"     [STATUS] clicar_aba='Movimentações': {clicou}")
+        if not clicou:
+            for alt in ['Movimentação', 'MOVIMENTAÇÕES', 'Histórico']:
+                if _clicar_aba(page, alt):
+                    if debug_log:
+                        debug_log(f"     [STATUS] aba alt '{alt}' clicada")
+                    clicou = True
+                    break
+
+        html = page.content()
+        if debug_log:
+            debug_log(f"     [STATUS] page.content() len={len(html)}")
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # Tenta múltiplos seletores — o 2G pode ter estrutura diferente do 1G
+        tbody = None
+        for sel in [
+            'div#includeContent table.resultTable tbody',
+            'table.resultTable tbody',
+            '#tabelaMovimentacoes tbody',
+            '#movimentacoes tbody',
+            'div#conteudoPrincipal table tbody',
+            'div#principalContent table tbody',
+        ]:
+            tbody = soup.select_one(sel)
+            if tbody:
+                if debug_log:
+                    debug_log(f"     [STATUS] tbody via '{sel}' ({len(tbody.find_all('tr'))} linhas)")
+                break
+
+        if debug_log and tbody is None:
+            tabelas = soup.find_all('table')
+            debug_log(f"     [STATUS] tbody=None; {len(tabelas)} tabela(s) na página")
+            for t in tabelas[:4]:
+                debug_log(f"       table class={t.get('class')} id={t.get('id')} chars={len(t.get_text())}")
+            divs_ids = [d.get('id') for d in soup.find_all('div') if d.get('id')]
+            debug_log(f"     [STATUS] div#ids: {divs_ids[:15]}")
+            tabs = [a.get_text(strip=True) for a in soup.find_all('a') if a.get_text(strip=True)]
+            debug_log(f"     [STATUS] links/abas: {tabs[:15]}")
+
         if tbody is None:
             return 'Pendente'
 
-        _KW_JULGADO = (
-            'JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
-            'JUNTADA DE PROVIMENTO',
-        )
-        _KW_PAUTADO = (
-            'ANÁLISE DO RELATOR CONCLUÍDA', 'ANALISE DO RELATOR CONCLUIDA',
-            'EM PAUTA', 'PROCESSO EM PAUTA',
-            'DISTRIBUÍDO PARA JULGAMENTO', 'DISTRIBUIDO PARA JULGAMENTO',
-        )
-
+        linhas_log = 0
         for linha in tbody.find_all('tr'):
             if 'display:none' in linha.get('style', '').replace(' ', ''):
                 continue
             texto_linha = ' '.join(linha.stripped_strings).upper()
             if not texto_linha:
                 continue
+            if debug_log and linhas_log < 5:
+                debug_log(f"       row: {texto_linha[:120]!r}")
+                linhas_log += 1
             if any(kw in texto_linha for kw in _KW_JULGADO):
                 return 'Julgado'
             if any(kw in texto_linha for kw in _KW_PAUTADO):
                 return 'Pautado'
 
         return 'Pendente'
-    except Exception:
+    except Exception as e:
+        if debug_log:
+            debug_log(f"     [STATUS] exception: {e}")
         return 'Pendente'
 
 
 def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
     """
     Navega em cada processo para enriquecer relator/turma/data e detectar status.
-    Visita processos sem relator/turma OU sem data de distribuição OU não finalizados
-    (Pendente ou Pautado), pois Pautado pode ter virado Julgado desde a última verificação.
+    Visita processos sem relator/turma OU não finalizados (Pendente ou Pautado).
+    Prioridade: sem dados → Pautado → Pendente.
     """
     pendentes = [p for p in processos
                  if not p.get('RELATOR') or not p.get('TURMA/CÂMARA')
-                 or not p.get('DATA DE DISTRIBUIÇÃO')
                  or p.get('STATUS DO JULGAMENTO', 'Pendente') in ('Pendente', 'Pautado')]
     if not pendentes:
         return
-    # Prioriza processos sem dados: evita re-visitar enriquecidos enquanto
-    # os sem RELATOR/TURMA/DATA ficam sempre no fim da fila
+    # Prioridade: sem RELATOR/TURMA (0) → Pautado (1) → Pendente (2)
     pendentes.sort(key=lambda p: (
-        bool(p.get('RELATOR') and p.get('TURMA/CÂMARA') and p.get('DATA DE DISTRIBUIÇÃO')),
+        bool(p.get('RELATOR') and p.get('TURMA/CÂMARA')),
+        {'Pautado': 0, 'Pendente': 1}.get(p.get('STATUS DO JULGAMENTO', 'Pendente'), 2),
     ))
     if limite:
         pendentes = pendentes[:limite]
     sem_dados = sum(1 for p in pendentes if not p.get('RELATOR') or not p.get('TURMA/CÂMARA'))
     log(f"🔍 Verificando {len(pendentes)} processo(s) ({sem_dados} sem dados, resto status)...")
-    _debug_data_count = 0  # loga HTML para diagnóstico da data nos primeiros 5 sem data
+    _debug_data_count   = 0  # loga HTML de data nos primeiros 5 sem data
+    _debug_status_count = 0  # loga diagnóstico de STATUS nos primeiros 3
     for i, p in enumerate(pendentes):
         num  = p.get('NÚMERO DO PROCESSO', '')
         url  = p.get('_url', '')
@@ -982,7 +1025,10 @@ def enriquecer_cabecalho_2g(page, processos, url_busca_2g, log, limite=500):
                 p['TURMA/CÂMARA'] = turma
             if data_dist and not p.get('DATA DE DISTRIBUIÇÃO'):
                 p['DATA DE DISTRIBUIÇÃO'] = data_dist
-            status = _detectar_status_2g(page)
+            _dlog_status = log if _debug_status_count < 3 else None
+            if _dlog_status:
+                _debug_status_count += 1
+            status = _detectar_status_2g(page, debug_log=_dlog_status)
             p['STATUS DO JULGAMENTO'] = status
             log(f"   [{i+1}/{len(pendentes)}] {num}: {turma or '?'} | {relator or '?'} | {classe or '—'} | {data_dist or '—'} | {status}")
         except Exception as e:
