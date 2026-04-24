@@ -1771,6 +1771,8 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
     pagina = 1
     total_paginas = None   # descoberto na primeira página
     total_registros = 0    # total reportado pelo PROJUDI (extraído da 1ª página)
+    _vazias_consecutivas = 0
+    MAX_VAZIAS = 3         # tolera até 3 páginas consecutivas sem processos antes de parar
 
     while pagina <= max_paginas:
         # Após submissão/paginação, PROJUDI retorna um frameset com ≈376 chars.
@@ -1783,25 +1785,51 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
 
         novos = _extrair_processos_tabela_dist(html)
         if not novos:
-            # Diagnóstico: loga todos os frames e seus tamanhos
+            _vazias_consecutivas += 1
+            # Diagnóstico: loga todos os frames e seus tamanhos (apenas na 1ª vazia consecutiva)
+            if _vazias_consecutivas == 1:
+                try:
+                    log(f"   🔍 Total frames: {len(page.frames)}")
+                    for frm in page.frames:
+                        try:
+                            sz = len(frm.content())
+                            log(f"   🔍 Frame: {(frm.url or 'about:blank')[:100]} ({sz} chars)")
+                        except Exception as _fe:
+                            log(f"   🔍 Frame [ERR]: {(frm.url or 'about:blank')[:80]} → {_fe}")
+                    _qualquer_num = re.search(r'\d{7}[\-\.]\d{2}', html)
+                    if _qualquer_num:
+                        log(f"   🔍 Amostra num: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+40]!r}")
+                    else:
+                        log(f"   🔍 Sem número de processo no HTML do frame alvo ({len(html)} chars)")
+                        log(f"   🔍 Amostra: {html[500:900]!r}")
+                except Exception as _e:
+                    log(f"   🔍 Erro diagnóstico: {_e}")
+            if _vazias_consecutivas >= MAX_VAZIAS:
+                log(f"   ⚠️ {MAX_VAZIAS} páginas consecutivas sem processos (pág {pagina}) — encerrando.")
+                break
+            log(f"   ⚠️ Página {pagina}: vazia ({_vazias_consecutivas}/{MAX_VAZIAS}) — tentando próxima.")
+            # Navega para a próxima página mesmo sem processos (pode ser falha de carregamento)
+            if total_paginas and pagina >= total_paginas:
+                break
+            pagina += 1
             try:
-                log(f"   🔍 Total frames: {len(page.frames)}")
-                for frm in page.frames:
-                    try:
-                        sz = len(frm.content())
-                        log(f"   🔍 Frame: {(frm.url or 'about:blank')[:100]} ({sz} chars)")
-                    except Exception as _fe:
-                        log(f"   🔍 Frame [ERR]: {(frm.url or 'about:blank')[:80]} → {_fe}")
-                _qualquer_num = re.search(r'\d{7}[\-\.]\d{2}', html)
-                if _qualquer_num:
-                    log(f"   🔍 Amostra num: {html[max(0,_qualquer_num.start()-5):_qualquer_num.start()+40]!r}")
-                else:
-                    log(f"   🔍 Sem número de processo no HTML do frame alvo ({len(html)} chars)")
-                    log(f"   🔍 Amostra: {html[500:900]!r}")
-            except Exception as _e:
-                log(f"   🔍 Erro diagnóstico: {_e}")
-            log(f"   ⚠️ Página {pagina}: nenhum processo extraído — encerrando.")
-            break
+                frame_alvo.evaluate(f"""() => {{
+                    var f = document.forms['recursoBuscaForm']
+                         || document.forms['buscaForm']
+                         || document.forms[0];
+                    if (!f) return;
+                    try {{ f['ativosPageNumber'].value = '{pagina}'; }} catch(e) {{}}
+                    f.submit();
+                }}""")
+                try:
+                    page.wait_for_load_state("networkidle", timeout=15000)
+                except Exception:
+                    pass
+                _aguardar_frame_conteudo(page)
+            except Exception as e:
+                log(f"   ⚠️ Erro ao avançar página (vazia): {e}")
+                break
+            continue
 
         # Filtro de data: aplica data_fim (remove futuros) e detecta saída do intervalo
         if _d_fim or _d_ini:
@@ -1821,6 +1849,7 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
                 log(f"   🛑 Data anterior a {data_ini} encontrada — encerrando busca.")
                 break
 
+        _vazias_consecutivas = 0  # reset ao receber processos
         processos.extend(novos)
 
         # Na primeira página extrai total de registros e total de páginas
