@@ -1518,24 +1518,15 @@ def _extrair_processos_tabela_dist(html_content):
                         data_dist = m.group(0)
                         break
 
-            # CLASSE, RELATOR, TURMA — extraídos por posição/conteúdo nas demais células
+            # TURMA — detectada por keyword; relator e classe vêm da visita individual
             relator = classe = turma = ''
-            candidatos = []   # textos que não são número CNJ, data ou turma/orgao
             for t in textos:
                 if not t or _CNJ_RE.search(t) or re.match(r'\d{2}/\d{2}/\d{4}', t):
                     continue
                 tl = t.lower()
                 if any(k in tl for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
                     turma = t
-                elif any(k in tl for k in ('relator', 'juiz')):
-                    relator = t.upper()
-                elif len(t) > 2:
-                    candidatos.append(t)
-            # Heurística: 1º candidato = classe; 2º = relator (nome sem keyword)
-            if candidatos:
-                classe = candidatos[0]
-            if not relator and len(candidatos) >= 2:
-                relator = candidatos[1].upper()
+                    break
 
             processos.append({
                 'NÚMERO DO PROCESSO':   numero,
