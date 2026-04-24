@@ -1423,20 +1423,31 @@ def _extrair_processos_tabela_dist(html_content):
             continue
         textos = [c.get_text(' ', strip=True) for c in cells]
 
-        # Número do processo — extrai do link CNJ
+        # Número do processo — <a class="link"><em title="NNNNNNN-NN...">
         numero = ''
         url_proc = ''
-        for cell in cells:
-            for a in cell.find_all('a'):
-                t = a.get_text(strip=True)
-                if _CNJ_RE.match(t):
-                    numero = t
-                    href = a.get('href', '')
-                    if href and not href.startswith('javascript'):
-                        url_proc = href if href.startswith('http') else BASE + href
+        a_link = row.find('a', class_='link')
+        if a_link:
+            em = a_link.find('em')
+            numero = (em.get('title', '') if em else '').strip()
+            if not numero:
+                numero = a_link.get_text(strip=True)
+            href = a_link.get('href', '')
+            if href and not href.startswith('javascript'):
+                url_proc = href if href.startswith('http') else BASE + href
+        # Fallback: qualquer link cujo texto bate no padrão CNJ
+        if not numero:
+            for cell in cells:
+                for a in cell.find_all('a'):
+                    t = a.get_text(strip=True)
+                    if _CNJ_RE.match(t):
+                        numero = t
+                        href = a.get('href', '')
+                        if href and not href.startswith('javascript'):
+                            url_proc = href if href.startswith('http') else BASE + href
+                        break
+                if numero:
                     break
-            if numero:
-                break
         if not numero:
             for t in textos:
                 m = _CNJ_RE.search(t)
