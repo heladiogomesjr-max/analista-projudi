@@ -1399,84 +1399,92 @@ def get_url_distribuicoes_2g(page, log):
 
 
 def _extrair_processos_tabela_dist(html_content):
-    """Extrai processos de uma página HTML da tabela recursoBusca."""
+    """Extrai processos de uma página HTML da tabela recursoBusca (class='resultTable')."""
     soup = BeautifulSoup(html_content, 'html.parser')
     processos = []
     _CNJ_RE = re.compile(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}')
 
-    for table in soup.find_all('table'):
-        rows = table.find_all('tr')
-        if len(rows) < 2:
+    # Localiza a tabela de resultados pela classe conhecida; fallback para qualquer tabela com CNJ
+    tabela = soup.find('table', class_='resultTable')
+    if tabela is None:
+        for t in soup.find_all('table'):
+            if _CNJ_RE.search(t.get_text()):
+                tabela = t
+                break
+    if tabela is None:
+        return processos
+
+    tbody = tabela.find('tbody') or tabela
+    linhas = tbody.find_all('tr')
+
+    for row in linhas:
+        cells = row.find_all('td', recursive=False)
+        if not cells:
             continue
-        if not _CNJ_RE.search(table.get_text()):
+        textos = [c.get_text(' ', strip=True) for c in cells]
+
+        # Número do processo — extrai do link CNJ
+        numero = ''
+        url_proc = ''
+        for cell in cells:
+            for a in cell.find_all('a'):
+                t = a.get_text(strip=True)
+                if _CNJ_RE.match(t):
+                    numero = t
+                    href = a.get('href', '')
+                    if href and not href.startswith('javascript'):
+                        url_proc = href if href.startswith('http') else BASE + href
+                    break
+            if numero:
+                break
+        if not numero:
+            for t in textos:
+                m = _CNJ_RE.search(t)
+                if m:
+                    numero = m.group(0)
+                    break
+        if not numero:
             continue
 
-        # recursive=False: ignora td/th de tabelas aninhadas (ex: célula de partes)
-        headers = [c.get_text(strip=True).lower()
-                   for c in rows[0].find_all(['th', 'td'], recursive=False)]
-        if not processos:  # loga cabeçalhos apenas na primeira tabela processada
-            import sys as _sys
-            print(f"[DIST] cabeçalhos detectados: {headers}", flush=True)
-
-        for row in rows[1:]:
-            # recursive=False garante alinhamento correto com os headers
-            cells = row.find_all(['td', 'th'], recursive=False)
-            if not cells:
-                continue
-            textos = [c.get_text(' ', strip=True) for c in cells]
-
-            numero = ''
-            url_proc = ''
-            for cell in cells:
-                for a in cell.find_all('a'):
-                    t = a.get_text(strip=True)
-                    if _CNJ_RE.match(t):
-                        numero = t
-                        href = a.get('href', '')
-                        if href and not href.startswith('javascript'):
-                            url_proc = href if href.startswith('http') else BASE + href
-                        break
-                if numero:
+        # DATA DE DISTRIBUIÇÃO: 5ª coluna (índice 4) — nowrap="nowrap" é marcador adicional
+        data_dist = ''
+        if len(cells) >= 5:
+            td_data = cells[4]
+            raw = td_data.get_text(' ', strip=True)
+            m = re.search(r'\d{2}/\d{2}/\d{4}', raw)
+            if m:
+                data_dist = m.group(0)
+        # Fallback: td com nowrap="nowrap" que contenha data
+        if not data_dist:
+            td_nw = row.find('td', attrs={'nowrap': 'nowrap'})
+            if td_nw:
+                m = re.search(r'\d{2}/\d{2}/\d{4}', td_nw.get_text())
+                if m:
+                    data_dist = m.group(0)
+        # Fallback final: qualquer célula com data dd/MM/yyyy
+        if not data_dist:
+            for t in textos:
+                m = re.search(r'\d{2}/\d{2}/\d{4}', t)
+                if m:
+                    data_dist = m.group(0)
                     break
-            if not numero:
-                for t in textos:
-                    m = _CNJ_RE.search(t)
-                    if m:
-                        numero = m.group(0)
-                        break
-            if not numero:
+
+        # CLASSE, RELATOR, TURMA — extraídos por posição/conteúdo nas demais células
+        relator = classe = turma = ''
+        for t in textos:
+            if not t or _CNJ_RE.search(t) or re.match(r'\d{2}/\d{2}/\d{4}', t):
                 continue
+            tl = t.lower()
+            if any(k in tl for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
+                turma = t
+            elif any(k in tl for k in ('relator', 'juiz')):
+                relator = t.upper()
+            elif not classe and len(t) > 3:
+                classe = t
 
-            data_dist = relator = classe = turma = ''
-            for idx, h in enumerate(headers):
-                if idx >= len(textos):
-                    break
-                v = textos[idx].strip()
-                if not v or v == numero:
-                    continue
-                if any(k in h for k in ('distribui', 'data dist', 'dt dist')):
-                    m = re.search(r'\d{2}/\d{2}/\d{4}', v)
-                    if m:
-                        data_dist = m.group(0)
-                elif 'relator' in h:
-                    relator = v.upper()
-                elif any(k in h for k in ('classe', 'tipo recurso', 'tipo proc')):
-                    if not _CNJ_RE.search(v):
-                        classe = v
-                elif any(k in h for k in ('turma', 'câmara', 'camara', 'órgão', 'orgao')):
-                    turma = v
-
-            # Fallback: qualquer data no texto da linha
-            if not data_dist:
-                for t in textos:
-                    m = re.search(r'\d{2}/\d{2}/\d{4}', t)
-                    if m and t != numero:
-                        data_dist = m.group(0)
-                        break
-
-            processos.append({
-                'NÚMERO DO PROCESSO':   numero,
-                'DATA DE DISTRIBUIÇÃO': data_dist,
+        processos.append({
+            'NÚMERO DO PROCESSO':   numero,
+            'DATA DE DISTRIBUIÇÃO': data_dist,
                 'RELATOR':              relator,
                 'TURMA/CÂMARA':         turma,
                 'CLASSE':               classe,
