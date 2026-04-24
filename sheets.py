@@ -269,7 +269,7 @@ def ler_distribuicoes(advogado_key=None, log=None):
         return []
     adv = advogado_key.upper().replace(' ', '_')
     try:
-        resp = requests.get(url, params={'adv': adv, 'action': 'distribuicoes'}, timeout=30)
+        resp = requests.get(url, params={'adv': adv, 'action': 'distribuicoes'}, timeout=90)
         resp.raise_for_status()
         result = resp.json()
         if result.get('ok'):
