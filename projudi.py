@@ -1938,6 +1938,20 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
             log(f"   ⚠️ Erro ao avançar página: {e}")
             break
 
+    # Deduplica por número de processo — paginação dinâmica pode gerar repetições
+    # quando novos processos são inseridos entre requisições, deslocando as páginas.
+    vistos = set()
+    unicos = []
+    for p in processos:
+        num = re.sub(r'\D', '', p.get('NÚMERO DO PROCESSO', ''))
+        if num and num not in vistos:
+            vistos.add(num)
+            unicos.append(p)
+    duplicatas = len(processos) - len(unicos)
+    if duplicatas:
+        log(f"   🔁 {duplicatas} duplicata(s) removida(s) (paginação dinâmica)")
+    processos = unicos
+
     # Ordena por DATA DE DISTRIBUIÇÃO DESC em Python como garantia,
     # independente de o servidor ter aplicado a ordenação corretamente.
     from datetime import date as _date_cls
@@ -1946,5 +1960,5 @@ def buscar_processos_ativos_2g(page, url_dist, log, max_paginas=300,
         reverse=True,
     )
 
-    log(f"   ✅ Total: {len(processos)} processo(s) ativo(s) em {pagina} página(s).")
+    log(f"   ✅ Total: {len(processos)} processo(s) únicos em {pagina} página(s).")
     return processos, total_registros
