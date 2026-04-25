@@ -957,58 +957,34 @@ def processar_job_distribuicoes(job_id, jobs, cpf, senha, advogado_key,
             p['DATA DE CAPTURA'] = data_existente if data_existente else agora
             p.pop('_url', None)  # remove campo interno antes de enviar ao Sheets
 
-        # ── Calcula diff: só envia o que mudou ───────────────────────────────
+        # ── Substituição completa: a planilha espelha exatamente a lista ativa do PROJUDI ──
+        # Processos que saíram da lista (redistribuídos, arquivados, etc.) desaparecem
+        # automaticamente. Dados enriquecidos (relator, turma, data) já foram reaproveitados
+        # acima via existentes_map antes de fechar o browser.
         ativos_list = [p for p in processos if p.get('STATUS DO JULGAMENTO') != 'Julgado']
 
-        if existentes_map:
-            def _precisa_atualizar(p, ex):
-                if not ex.get('DATA DE DISTRIBUIÇÃO') and p.get('DATA DE DISTRIBUIÇÃO'):
-                    return True
-                # Detecta qualquer mudança real nos campos enriquecidos.
-                # Inclui '' != "valor_errado" para limpar dados corrompidos.
-                rel_n = (p.get('RELATOR') or '').strip()
-                rel_e = (ex.get('RELATOR') or '').strip()
-                if rel_n != rel_e:
-                    return True
-                tur_n = (p.get('TURMA/CÂMARA') or '').strip()
-                tur_e = (ex.get('TURMA/CÂMARA') or '').strip()
-                if tur_n and tur_n != tur_e:
-                    return True
-                cls_n = (p.get('CLASSE') or '').strip()
-                cls_e = (ex.get('CLASSE') or '').strip()
-                if cls_n != cls_e:
-                    return True
-                if p.get('STATUS DO JULGAMENTO', 'Pendente') != ex.get('STATUS DO JULGAMENTO', 'Pendente'):
-                    return True
-                return False
+        saindo = [num for num in (existentes_map or {})
+                  if num not in {p['NÚMERO DO PROCESSO'] for p in processos}]
+        novos  = [p['NÚMERO DO PROCESSO'] for p in ativos_list
+                  if p['NÚMERO DO PROCESSO'] not in (existentes_map or {})]
+        recem_julgados = [
+            p for p in processos
+            if p.get('STATUS DO JULGAMENTO') == 'Julgado'
+            and p.get('NÚMERO DO PROCESSO') in (existentes_map or {})
+        ]
+        log(f"   📊 Sync: {len(novos)} novo(s), {len(recem_julgados)} recém-julgado(s), "
+            f"{len(saindo)} saindo da lista, {len(ativos_list)} ativo(s) total")
+        if saindo:
+            log(f"   🗑️  Removidos da lista PROJUDI: {', '.join(saindo[:5])}"
+                + (' ...' if len(saindo) > 5 else ''))
 
-            novos       = [p for p in ativos_list if p['NÚMERO DO PROCESSO'] not in existentes_map]
-            atualizados = [p for p in ativos_list
-                           if p['NÚMERO DO PROCESSO'] in existentes_map
-                           and _precisa_atualizar(p, existentes_map[p['NÚMERO DO PROCESSO']])]
-            # Processos que passaram a Julgado precisam ter o status escrito no Sheets
-            # para o cleanup poder arquivá-los e removê-los da lista ativa.
-            # Ficam fora de ativos_list mas ainda precisam de um upsert final.
-            recem_julgados = [
-                p for p in processos
-                if p.get('STATUS DO JULGAMENTO') == 'Julgado'
-                and p.get('NÚMERO DO PROCESSO') in existentes_map
-                and existentes_map[p['NÚMERO DO PROCESSO']].get('STATUS DO JULGAMENTO') != 'Julgado'
-            ]
-            para_enviar = novos + atualizados + recem_julgados
-            sem_mudanca = len(ativos_list) - len(novos) - len(atualizados)
-            log(f"   📊 Diff: {len(novos)} novo(s), {len(atualizados)} atualizado(s), "
-                f"{len(recem_julgados)} recém-julgado(s), {sem_mudanca} sem mudança")
-            modo_upsert = True
-        else:
-            para_enviar = ativos_list
-            modo_upsert = False
-
-        pct(80, f"Enviando {len(para_enviar)} processo(s) para Sheets...")
+        # Envia a lista completa do PROJUDI (replace_first limpa e reescreve).
+        # Inclui Julgados para que o Apps Script possa arquivá-los antes de removê-los.
+        pct(80, f"Sincronizando {len(processos)} processo(s) com Sheets...")
         if _SHEETS_OK:
             try:
                 _sheets_mod.inserir_distribuicoes(
-                    para_enviar, advogado_key=advogado_key, log=log, upsert=modo_upsert
+                    processos, advogado_key=advogado_key, log=log, upsert=False
                 )
             except Exception as e:
                 log(f"   ⚠️ Sheets: {e}")

@@ -891,7 +891,10 @@ def _extrair_cabecalho_2g(page, debug_log=None):
 def _detectar_status_2g(page, debug_log=None):
     """
     Retorna 'Julgado', 'Pautado' ou 'Pendente' lendo os eventos da aba Movimentações.
-    Aceita debug_log para diagnosticar falhas de seletor nos primeiros processos.
+
+    O PROJUDI 2G tem múltiplos div#includeContent (um por aba) controlados por
+    display:block/none via JavaScript. BeautifulSoup não enxerga essa visibilidade,
+    então usamos page.evaluate() para encontrar a tabela VISÍVEL de movimentos.
     """
     _KW_JULGADO = (
         'JUNTADA DE ACÓRDÃO', 'JUNTADA DE ACORDÃO', 'JUNTADA DE ACORDAO',
@@ -915,54 +918,49 @@ def _detectar_status_2g(page, debug_log=None):
                     clicou = True
                     break
 
-        html = page.content()
+        # Usa JS para encontrar a tabela de movimentos VISÍVEL no DOM.
+        # offsetParent=null indica que o elemento ou um ancestral tem display:none.
+        # A tabela de movimentos tem número sequencial na 1ª ou 2ª célula.
+        linhas = page.evaluate("""() => {
+            const tables = document.querySelectorAll('table.resultTable');
+            for (const t of tables) {
+                if (!t.offsetParent) continue;
+                const rows = Array.from(t.querySelectorAll('tbody tr'));
+                if (rows.length < 1) continue;
+                // Confirma tabela de movimentos: alguma linha tem nº sequencial
+                // na 1ª ou 2ª célula (ex: "10", "5"), que a tabela de Partes não tem.
+                const ehMovimentos = rows.some(function(r) {
+                    const cells = r.querySelectorAll('td');
+                    for (let i = 0; i < Math.min(cells.length, 2); i++) {
+                        if (/^\\d{1,5}$/.test((cells[i].innerText || '').trim())) return true;
+                    }
+                    return false;
+                });
+                if (!ehMovimentos) continue;
+                return rows
+                    .filter(function(r) { return r.style.display !== 'none'; })
+                    .map(function(r) {
+                        return (r.innerText || r.textContent || '').replace(/\\s+/g, ' ').trim();
+                    })
+                    .filter(Boolean);
+            }
+            return [];
+        }""")
+
         if debug_log:
-            debug_log(f"     [STATUS] page.content() len={len(html)}")
-        soup = BeautifulSoup(html, 'html.parser')
+            debug_log(f"     [STATUS] JS movimentos: {len(linhas)} linha(s)")
+            for r in linhas[:5]:
+                debug_log(f"       row: {r[:120]!r}")
 
-        # Tenta múltiplos seletores — o 2G pode ter estrutura diferente do 1G
-        tbody = None
-        for sel in [
-            'div#includeContent table.resultTable tbody',
-            'table.resultTable tbody',
-            '#tabelaMovimentacoes tbody',
-            '#movimentacoes tbody',
-            'div#conteudoPrincipal table tbody',
-            'div#principalContent table tbody',
-        ]:
-            tbody = soup.select_one(sel)
-            if tbody:
-                if debug_log:
-                    debug_log(f"     [STATUS] tbody via '{sel}' ({len(tbody.find_all('tr'))} linhas)")
-                break
-
-        if debug_log and tbody is None:
-            tabelas = soup.find_all('table')
-            debug_log(f"     [STATUS] tbody=None; {len(tabelas)} tabela(s) na página")
-            for t in tabelas[:4]:
-                debug_log(f"       table class={t.get('class')} id={t.get('id')} chars={len(t.get_text())}")
-            divs_ids = [d.get('id') for d in soup.find_all('div') if d.get('id')]
-            debug_log(f"     [STATUS] div#ids: {divs_ids[:15]}")
-            tabs = [a.get_text(strip=True) for a in soup.find_all('a') if a.get_text(strip=True)]
-            debug_log(f"     [STATUS] links/abas: {tabs[:15]}")
-
-        if tbody is None:
-            return 'Pendente'
-
-        linhas_log = 0
-        for linha in tbody.find_all('tr'):
-            if 'display:none' in linha.get('style', '').replace(' ', ''):
-                continue
-            texto_linha = ' '.join(linha.stripped_strings).upper()
-            if not texto_linha:
-                continue
-            if debug_log and linhas_log < 5:
-                debug_log(f"       row: {texto_linha[:120]!r}")
-                linhas_log += 1
-            if any(kw in texto_linha for kw in _KW_JULGADO):
+        for texto in (linhas or []):
+            texto_upper = texto.upper()
+            if any(kw in texto_upper for kw in _KW_JULGADO):
                 return 'Julgado'
-            if any(kw in texto_linha for kw in _KW_PAUTADO):
+            if any(kw in texto_upper for kw in _KW_PAUTADO):
                 return 'Pautado'
+
+        if debug_log and not linhas:
+            debug_log("     [STATUS] tabela de movimentos nao encontrada via JS")
 
         return 'Pendente'
     except Exception as e:

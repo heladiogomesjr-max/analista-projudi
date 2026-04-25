@@ -186,9 +186,8 @@ def inserir_distribuicoes(processos, advogado_key=None, log=None, upsert=False):
         {col: p.get(col, '') for col in COLUNAS_DIST}
         for p in processos
         if str(p.get('NÚMERO DO PROCESSO') or '').strip()
-        # Em upsert, inclui Julgado para que o Apps Script escreva o status e o
-        # cleanup possa arquivá-los; em replace_first não faz sentido adicioná-los.
-        and (upsert or p.get('STATUS DO JULGAMENTO') != 'Julgado')
+        # Inclui Julgados em ambos os modos para que o Apps Script possa
+        # arquivá-los na aba "Julgados" antes de removê-los da lista ativa.
     ]
 
     # Em modo upsert, mesmo com 0 linhas precisamos disparar o cleanup
